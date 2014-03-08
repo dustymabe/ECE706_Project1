@@ -7,8 +7,8 @@
 #include <string.h>
 #include <assert.h>
 #include <fstream>
-#include "bus.h"
-#include "cache.h"
+#include "Cache.h"
+#include "Tile.h"
 #include "params.h"
 
 
@@ -24,38 +24,27 @@ int main(int argc, char *argv[]) {
     int   proc;
     int   tabular;
     ulong addr;
-    Bus * bus;
     Cache ** cacheArray;
     char delimit[4] = " \t\n"; // tokenize based on "space", "tab", eol
     char strHeader[2048];
     char strStats[2048];
 
+    // Check input
     if (argv[1] == NULL) {
         printf("input format: ");
-        printf("./smp <L1_size> <L2_size> <assoc> <block_size> <#procs> <trace_file> <partitions> \n");
-        exit(0);
+        printf("./sim <partitions> <trace_file> \n");
+        exit(1);
     }
 
-    int l1size = atoi(argv[1]);
-    int l2size = atoi(argv[2]);
-    int assoc  = atoi(argv[3]);
-    int blksize= atoi(argv[4]);
-    int nprocs = atoi(argv[5]); // Only going to use 16
-
+    // Store the filename
     char *fname =  (char *)malloc(100);
-    fname = argv[6];
+    fname = argv[2];
 
-    if (argv[7] == NULL)
+////if (argv[7] == NULL)
         tabular = 0;
-    else
-        tabular = 1;
+////else
+////    tabular = 1;
 
-#define L1SIZE (32 *  ONEKBYTE) // 32  KiB  
-#define L2SIZE (256 * ONEKBYTE) // 256 KiB  
-#define L1ASSOC 8  // 8 cache lines in a set  
-#define L2ASSOC 8  // 8 cache lines in a set
-#define BLKSIZE 64 // 64 bytes
-#define NPROCS  16 // 16 procs
 
     // Print out the simulator configuration (if not tabular)
     if (!tabular) {
@@ -78,20 +67,21 @@ int main(int argc, char *argv[]) {
 
     // Create a 4x4 array of Tiles here
     Tile * tiles[NPROCS];
+    for (i=0; i < NPROCS; i++)
+        tiles[i] = new Tile(i);
 
 
  
-    // Create an array to hold a cache object for each proc
-    cacheArray = new Cache * [nprocs];
+////// Create an array to hold a cache object for each proc
+////cacheArray = new Cache * [nprocs];
 
-    // Create a new bus
-    bus = new Bus(num_processors, cacheArray);
+////// Create a new bus
+////bus = new Bus(num_processors, cacheArray);
 
-    // Create a cache object for each proc
-    for(i=0; i < nprocs; i++)
-        cacheArray[i] = new Cache(cache_size, cache_assoc, blk_size, protocol, bus);
+////// Create a cache object for each proc
+////for(i=0; i < nprocs; i++)
+////    cacheArray[i] = new Cache(cache_size, cache_assoc, blk_size, protocol, bus);
 
-    
     // Open the trace file
     fp = fopen(fname,"r");
     if (fp == 0) {   
@@ -114,7 +104,7 @@ int main(int argc, char *argv[]) {
         token = strtok(buf, delimit);
         assert(token != NULL);
         proc = atoi(token);
-        assert(proc < num_processors);
+        assert(proc < NPROCS);
         //printf("processor is %d\n", proc);
 
         // The "operation" is next
@@ -131,9 +121,9 @@ int main(int argc, char *argv[]) {
         token = strtok(NULL, delimit);
         assert(token != NULL);
         addr = strtoul(token, NULL, 16);
-        //printf("address is: %x\n", addr);
+        //printf("address is: %x\n", (uint) addr);
 
-        Tiles[proc]->Access(addr, op[0]);
+        tiles[proc]->Access(addr, op[0]);
 
     }
     fclose(fp);
@@ -142,14 +132,16 @@ int main(int argc, char *argv[]) {
 
     // If asked to print out stats in tabular form
     // then do so, else print out normal output.
-    if (tabular) {
-        cacheArray[0]->printHeaderTabular(strHeader);
-        for(i=0; i<num_processors; i++)
-            cacheArray[i]->printStatsTabular(strStats, i);
-        printf("%s\tTotals\n", strStats);
-    } else {
-        for(i=0; i<num_processors; i++)
-            cacheArray[i]->printStats(i);
-    }
+////if (tabular) {
+////    cacheArray[0]->printHeaderTabular(strHeader);
+////    for(i=0; i<num_processors; i++)
+////        cacheArray[i]->printStatsTabular(strStats, i);
+////    printf("%s\tTotals\n", strStats);
+////} else {
+////    for(i=0; i<num_processors; i++)
+////        cacheArray[i]->printStats(i);
+////}
     
+    for (i=0; i < NPROCS; i++)
+        tiles[i]->PrintStats();
 }

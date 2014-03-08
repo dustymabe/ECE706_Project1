@@ -1,14 +1,14 @@
-CC = gcc
+CC = g++
 OPT = -O0
 OPT = -g
 WARN = -Wall
 CFLAGS = $(OPT) $(WARN) $(INC) $(LIB)
 
 # List all your .c files here (source files, excluding header files)
-SIM_SRC = simulator.c cache.c set.c block.c tile.c
+SIM_SRC = simulator.cc Cache.cc Tile.cc CCSM.cc
 
 # List corresponding compiled object files here (.o files)
-SIM_OBJ = 
+SIM_OBJ = #simulator.o Cache.o Tile.o CCSM.o
  
 #################################
 

@@ -3,13 +3,14 @@
  * cache.cc - Implementation of cache (either L1 or L2)
  */
 
-#include <stdlib.h>
+//##include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
 #include <cmath>
-#include "cache.h"
-#include "bus.h"
+#include "Cache.h"
+#include "CacheLine.h"
 #include "CCSM.h"
+
 using namespace std;
 
 /*
@@ -21,7 +22,7 @@ using namespace std;
  *      - b - the size of each block (line) in the cache
  *
  */
-Cache::Cache(int l, int s, int a, int b, Bus *bs) {
+Cache::Cache(int l, int s, int a, int b) {
 
     CCSM * ccsm;
     ulong i, j;
@@ -55,9 +56,9 @@ Cache::Cache(int l, int s, int a, int b, Bus *bs) {
     tagMask -= 1;
   
     // create a two dimentional cache, sized as cache[sets][assoc]
-    cacheLines = new CacheLine*[numSets];
+    cacheArray = new CacheLine*[numSets];
     for (i=0; i < numSets; i++) {
-        cacheLines[i] = new CacheLine[assoc];
+        cacheArray[i] = new CacheLine[assoc];
     }
 
     // If this is an L2 cache then we will create
@@ -67,8 +68,8 @@ Cache::Cache(int l, int s, int a, int b, Bus *bs) {
     if (cacheLevel == L2)
         for (i=0; i < numSets; i++)
             for (j=0; j< assoc; j++) {
-                ccsm = new MESI(bus, this, &(lines[i][j]));
-                lines[i][j].init(ccsm);
+                ccsm = new CCSM(this, &(cacheArray[i][j]));
+                cacheArray[i][j].init(ccsm);
             }
 }
 
@@ -79,7 +80,7 @@ Cache::Cache(int l, int s, int a, int b, Bus *bs) {
  *       the address so that you are just left with the
  *       tag bits. 
  */
-void Cache::calcTag(ulong addr) {
+ulong Cache::calcTag(ulong addr) {
     return (addr >> (indexbits + offsetbits));
 }
 
@@ -91,7 +92,7 @@ void Cache::calcTag(ulong addr) {
  *       shifting (offsetbits) from the address so that 
  *       we are just left with the index bits. 
  */
-void Cache::calcIndex(ulong addr) {
+ulong Cache::calcIndex(ulong addr) {
     return ((addr & tagMask) >> offsetbits);
 }
 
@@ -103,7 +104,7 @@ void Cache::calcIndex(ulong addr) {
  * Returns MISS if miss
  * Returns HIT  if hit
  */
-void Cache::Access(ulong addr, uchar op) {
+ulong Cache::Access(ulong addr, uchar op) {
     CacheLine * line;
     int state;
 
@@ -112,7 +113,7 @@ void Cache::Access(ulong addr, uchar op) {
     currentCycle++;
 
     // Clear the bus indicator that a flush has been performed
-    bus->clearFlushed();
+  //bus->clearFlushed();
             
     // Update w/r counters
     if (op == 'w')
@@ -147,10 +148,12 @@ void Cache::Access(ulong addr, uchar op) {
 
     // Update the cache coherence protocol state machine
     // for this line in the cache
-    if (op == 'w')
-        line->ccsm->procInitWr(addr);
-    else
-        line->ccsm->procInitRd(addr);
+    if (cacheLevel == L2) {
+        if (op == 'w')
+            line->ccsm->procInitWr(addr);
+        else
+            line->ccsm->procInitRd(addr);
+    }
 
     // Return an indication of if we hit or miss.
     return state;
@@ -174,12 +177,12 @@ CacheLine * Cache::findLine(ulong addr) {
     for(j=0; j<assoc; j++) {
 
         // If not valid then continue
-        if (cache[index][j].isValid() == 0)
+        if (cacheArray[index][j].isValid() == 0)
             continue;
 
         // Does the tag match.. If so then score!
-        if (cache[index][j].getTag() == tag) {
-            return &(cache[index][j]);
+        if (cacheArray[index][j].getTag() == tag) {
+            return &(cacheArray[index][j]);
         }
     }
 
@@ -219,15 +222,15 @@ CacheLine * Cache::getLRU(ulong addr) {
    
     // First see if there are any invalid blocks
     for(j=0;j<assoc;j++) { 
-      if(cache[index][j].isValid() == 0)
-          return &(cache[index][j]);     
+      if(cacheArray[index][j].isValid() == 0)
+          return &(cacheArray[index][j]);     
     }   
 
     // No invalid lines. Find LRU. 
     for(j=0;j<assoc;j++) {
-        if (cache[index][j].getSeq() <= min) { 
+        if (cacheArray[index][j].getSeq() <= min) { 
             victim = j; 
-            min = cache[index][j].getSeq();
+            min = cacheArray[index][j].getSeq();
         }
     } 
     
@@ -235,7 +238,7 @@ CacheLine * Cache::getLRU(ulong addr) {
     assert(victim != assoc);
 
     // Return the victim
-    return &(cache[index][victim]);
+    return &(cacheArray[index][victim]);
 }
 
 /*
@@ -246,7 +249,6 @@ CacheLine * Cache::getLRU(ulong addr) {
  * Returns a CacheLine object that represents the filled line.
  */
 CacheLine *Cache::fillLine(ulong addr) { 
-    ulong tag;
     CacheLine *victim;
 
     // Get the LRU block (or invalid block)
@@ -256,12 +258,14 @@ CacheLine *Cache::fillLine(ulong addr) {
     // If the chosen victim is valid then update the cache's
     // victimAddr variable so that the Tile can know there was an
     // eviction and can send invalidations to the L1s
+    // 
+    // NOTE: Must reconstruct base address from tag and index bits
     if (victim->isValid())
-        victimAddr = ((victim->tag << (indexbits)) & victim->index) << offsetbits;
+        victimAddr = ((victim->getTag() << (indexbits)) & victim->getIndex()) << offsetbits;
 
     // If the chosen victim is valid then mark as invalid 
     // in the CCSM
-    if (victim->isValid())
+    if (cacheLevel == L2 && victim->isValid())
         victim->ccsm->evict();
 
     // If the chosen victim is dirty then update writeBack
@@ -274,11 +278,35 @@ CacheLine *Cache::fillLine(ulong addr) {
     updateLRU(victim);
 
     // Update information for this cache line.
-    tag   = calcTag(addr);   
-    index = calcIndex(addr);   
-    victim->setTag(tag);
-    victim->setIndex(index);
+    victim->setTag(calcTag(addr));
+    victim->setIndex(calcIndex(addr));
     victim->setFlags(VALID);    
 
     return victim;
 }
+
+
+void Cache::PrintStats() {
+    printf("01. number of reads:                            %lu\n", reads);
+    printf("02. number of read misses:                      %lu\n", readMisses);
+    printf("03. number of writes:                           %lu\n", writes);
+    printf("04. number of write misses:                     %lu\n", writeMisses);
+    printf("05. number of write backs:                      %lu\n", writeBacks);
+////printf("06. number of invalid to exclusive (INV->EXC):  %lu\n", ItoE);
+////printf("07. number of invalid to shared (INV->SHD):     %lu\n", ItoS);
+////printf("08. number of modified to shared (MOD->SHD):    %lu\n", MtoS);
+////printf("09. number of exclusive to shared (EXC->SHD):   %lu\n", EtoS);
+////printf("10. number of shared to modified (SHD->MOD):    %lu\n", StoM);
+////printf("11. number of invalid to modified (INV->MOD):   %lu\n", ItoM);
+////printf("12. number of exclusive to modified (EXC->MOD): %lu\n", EtoM);
+////printf("13. number of owned to modified (OWN->MOD):     %lu\n", OtoM);
+////printf("14. number of modified to owned (MOD->OWN):     %lu\n", MtoO);
+////printf("15. number of shared to invalid (SHD->INV):     %lu\n", StoI);
+////printf("16. number of cache to cache transfers:         %lu\n", transfers);
+////printf("17. number of interventions:                    %lu\n", interventions);
+////printf("18. number of invalidations:                    %lu\n", invalidations);
+////printf("19. number of flushes:                          %lu\n", flushes);
+
+}
+
+

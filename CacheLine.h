@@ -6,6 +6,9 @@
 #ifndef CACHELINE_H
 #define CACHELINE_H
 
+#include "CacheLine.h"
+#include "CCSM.h"
+
 // Keep some basic states for cache lines 
 enum{
     INVALID = 0,

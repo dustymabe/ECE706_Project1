@@ -3,8 +3,8 @@
  * CCSM.cc - Implementation of a MESI Cache Coherence State Machine (CCSM).
  */
 
+#include <assert.h>
 #include "CCSM.h"
-#include "cache.h"
 
 // What are these?
 enum{
@@ -21,8 +21,9 @@ enum{
 };
 
 
-CCSM::CCSM(Bus *b, Cache *c, cacheLine *l) {
-    bus   = b;
+//CCSM::CCSM(Bus *b, Cache *c, cacheLine *l) {
+CCSM::CCSM(Cache *c, CacheLine *l) {
+//    bus   = b;
     cache = c;
     line  = l;
     state = STATEI;
@@ -46,14 +47,14 @@ void CCSM::busInitBusRdX() {
 
         // For M we need to transistion to Invalid state and flush. 
         case STATEM: 
-            bus->flush(cache, line);
+//          bus->flush(cache, line);
             setState(STATEI);
             break;
 
         // For E&S we need to transistion to Invalid state and optionally flush. 
         case STATEE: 
         case STATES: 
-            bus->flushOpt();
+//          bus->flushOpt();
             setState(STATEI);
             break;
 
@@ -71,19 +72,19 @@ void CCSM::busInitBusRd() {
 
         // For M we need to transistion to Shared state and flush. 
         case STATEM: 
-            bus->flush(cache, line);
+//          bus->flush(cache, line);
             setState(STATES);
             break;
 
         // For E we transition to Shared and optionally flush
         case STATEE:
-            bus->flushOpt();
+//          bus->flushOpt();
             setState(STATES);
             break;
         
         // For S, no need to change state, but we can optionally flush
         case STATES: 
-            bus->flushOpt();
+//          bus->flushOpt();
             break;
 
         // Nothing to do for I
@@ -130,7 +131,7 @@ void CCSM::procInitWr(unsigned long addr) {
 
         // For S need to send BUSUPGR and go to modified
         case STATES: 
-            bus->transaction(cache, addr, BUSUPGR);
+//          bus->transaction(cache, addr, BUSUPGR);
             setState(STATEM);
             break;
 
@@ -138,9 +139,9 @@ void CCSM::procInitWr(unsigned long addr) {
         // Also need to check if a flush was performed and
         // bump cache-to-cache transfers if so.
         case STATEI: 
-            bus->transaction(cache, addr, BUSRDX);
-            if (bus->isFlushed())
-                cache->bumpTransfers();
+//          bus->transaction(cache, addr, BUSRDX);
+//          if (bus->isFlushed())
+//              cache->bumpTransfers();
             setState(STATEM);
             break;
 
@@ -164,15 +165,15 @@ void CCSM::procInitRd(unsigned long addr) {
         // Also need to check if a flush was performed and
         // bump cache-to-cache transfers if so.
         case STATEI: 
-            if (!bus->isBlockInAnotherCache(cache, addr))
-                setState(STATEE);
-            else
-                setState(STATES);
+//          if (!bus->isBlockInAnotherCache(cache, addr))
+//              setState(STATEE);
+//          else
+//              setState(STATES);
 
-            bus->transaction(cache, addr, BUSRD);
+//          bus->transaction(cache, addr, BUSRD);
 
-            if (bus->isFlushed())
-                cache->bumpTransfers();
+//          if (bus->isFlushed())
+//              cache->bumpTransfers();
             break;
 
         default :

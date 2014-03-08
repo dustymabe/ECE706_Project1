@@ -3,20 +3,26 @@
  * cache.cc - Implementation of cache (either L1 or L2)
  */
 
+#include <assert.h>
+#include <stdio.h>
 #include "Tile.h"
 #include "params.h"
 
 
-Tile::Tile() {
+Tile::Tile(int number) {
+
+    index = number;
 
     l1cache = new Cache(L1, L1SIZE, L1ASSOC, BLKSIZE);
+    assert(l1cache);
 
     l2cache = new Cache(L2, L2SIZE, L2ASSOC, BLKSIZE);
+    assert(l2cache);
 
 }
 
 
-Tile::Access(ulong addr, uchar op) {
+void Tile::Access(ulong addr, uchar op) {
 
     int state;
 
@@ -25,13 +31,22 @@ Tile::Access(ulong addr, uchar op) {
     // L1: Check L1 to see if hit
     state = l1cache->Access(addr, op);
 
-    // If hit and write then write through to L2
+
+    // If a hit then we are done (almost). 
     //
-    XXX need to make this check aggregate L2 of partition
+    //XXX need to make this check aggregate L2 of partition
     // can use partition table to determine which L2 cache
     // the block will be in.
-    if (state == HIT && op == 'w')
-        l2cache->Access(addr, op)
+    if (state == HIT) {
+
+        // Must make any write hits in the L1 access the 
+        // L2 as well (writethrough)
+        if (op == 'w')
+            l2cache->Access(addr, op); // writethrough
+
+        // Now we can return
+        return;
+    }
 
     //////////////
     // done with hit
@@ -42,18 +57,26 @@ Tile::Access(ulong addr, uchar op) {
     state = l2cache->Access(addr, op);
 
     // If hit then done.
-    return;
+    if (state == HIT)
+        return;
 
     // If miss in L1 and L2.. then it is possible a block was 
     // evicted from the L2. If that is the case then we need to 
     // broadcast an invalidation for that block to all L1 caches in the 
     // partition.
-    if (state == MISS && l2cache->victimAddr != 0) {
+    if (state == MISS && l2cache->getVictimAddr() != 0) {
 
         // broadcast to all L1s the invalidation
 
         // reset victimAddr
-        l2cache->victimAddr = 0
+        l2cache->setVictimAddr(0);
     }
 
+}
+
+void Tile::PrintStats() {
+    printf("===== Simulation results (Cache %d L1) =============\n", index);
+    l1cache->PrintStats();
+    printf("===== Simulation results (Cache %d L2) =============\n", index);
+    l2cache->PrintStats();
 }
