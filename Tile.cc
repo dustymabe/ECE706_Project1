@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include "Tile.h"
+#include "Cache.h"
 #include "params.h"
 
 
@@ -13,10 +14,10 @@ Tile::Tile(int number) {
 
     index = number;
 
-    l1cache = new Cache(L1, L1SIZE, L1ASSOC, BLKSIZE);
+    l1cache = new Cache(this, L1, L1SIZE, L1ASSOC, BLKSIZE);
     assert(l1cache);
 
-    l2cache = new Cache(L2, L2SIZE, L2ASSOC, BLKSIZE);
+    l2cache = new Cache(this, L2, L2SIZE, L2ASSOC, BLKSIZE);
     assert(l2cache);
 
 }
@@ -80,3 +81,15 @@ void Tile::PrintStats() {
     printf("===== Simulation results (Cache %d L2) =============\n", index);
     l2cache->PrintStats();
 }
+
+
+////void Tile::getFromNetwork() {
+
+////    // Network will call this function when sending a message to this
+////    // tile. 
+
+////}
+
+////void Tile::broadCastToPartition() {
+////    // Broadcast to all tiles in partition
+////}

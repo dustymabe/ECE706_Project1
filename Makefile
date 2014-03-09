@@ -5,10 +5,10 @@ WARN = -Wall
 CFLAGS = $(OPT) $(WARN) $(INC) $(LIB)
 
 # List all your .c files here (source files, excluding header files)
-SIM_SRC = simulator.cc Cache.cc Tile.cc CCSM.cc
+SIM_SRC = simulator.cc Cache.cc CCSM.cc Tile.cc
 
 # List corresponding compiled object files here (.o files)
-SIM_OBJ = #simulator.o Cache.o Tile.o CCSM.o
+SIM_OBJ = simulator.o Cache.o CCSM.o Tile.o
  
 #################################
 

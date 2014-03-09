@@ -6,11 +6,9 @@
 #ifndef CCSM_H
 #define CCSM_H
 
-////class Bus;   // Forward Declaration
-class Cache; // Forward Declaration
+class Cache;     // Forward Declaration
 class CacheLine; // Forward Declaration
-
-
+class Tile;      // Forward Declaration
 
 class CCSM {
     private:
@@ -18,9 +16,9 @@ class CCSM {
         int state;
         Cache * cache;
         CacheLine * line;
+        Tile * tile;
 
-        CCSM();
-        CCSM(Cache *c, CacheLine *l); 
+        CCSM(Tile *t, Cache *c, CacheLine *l); 
        // CCSM(Bus *b, Cache *c, cacheLine *l); 
         ~CCSM();
         void setState(int s);

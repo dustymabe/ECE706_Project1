@@ -5,8 +5,9 @@
 #ifndef TILE_H
 #define TILE_H
 
-#include "Cache.h"
 #include "types.h"
+
+class Cache; // Forward Declaration
 
 class Tile {
 protected:

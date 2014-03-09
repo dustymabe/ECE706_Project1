@@ -6,8 +6,9 @@
 #ifndef CACHELINE_H
 #define CACHELINE_H
 
-#include "CacheLine.h"
-#include "CCSM.h"
+#include "types.h"
+
+class CCSM; // Forward Declaration
 
 // Keep some basic states for cache lines 
 enum{

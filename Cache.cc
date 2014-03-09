@@ -10,8 +10,7 @@
 #include "Cache.h"
 #include "CacheLine.h"
 #include "CCSM.h"
-
-using namespace std;
+#include "Tile.h"
 
 /*
  * Cache::Cache - create a new cache object.
@@ -22,9 +21,10 @@ using namespace std;
  *      - b - the size of each block (line) in the cache
  *
  */
-Cache::Cache(int l, int s, int a, int b) {
+Cache::Cache(Tile * t, int l, int s, int a, int b) {
 
     CCSM * ccsm;
+    Tile * tile;
     ulong i, j;
 
     // Initialize all counters
@@ -38,6 +38,7 @@ Cache::Cache(int l, int s, int a, int b) {
     victimAddr = 0;
 
     // Process arguments
+    tile       = t;
     cacheLevel = l;
     size       = (ulong)(s);
     lineSize   = (ulong)(b);
@@ -68,7 +69,7 @@ Cache::Cache(int l, int s, int a, int b) {
     if (cacheLevel == L2)
         for (i=0; i < numSets; i++)
             for (j=0; j< assoc; j++) {
-                ccsm = new CCSM(this, &(cacheArray[i][j]));
+                ccsm = new CCSM(tile, this, &(cacheArray[i][j]));
                 cacheArray[i][j].init(ccsm);
             }
 }
@@ -94,6 +95,20 @@ ulong Cache::calcTag(ulong addr) {
  */
 ulong Cache::calcIndex(ulong addr) {
     return ((addr & tagMask) >> offsetbits);
+}
+
+/*
+ * Cache::getBaseAddr
+ *     - Given a tag and an index rebuild the base address
+ *       for the block referenced by that tag/index.
+ *
+ *       This means we must take the tag and shift over by the
+ *       number of index bits and then & that with the index.
+ *       Then left shift that by the number of offset bits. 
+ */
+ulong Cache::getBaseAddr(ulong tag, ulong index) {
+    int addr;
+    addr = ((tag << indexbits) & index) << offsetbits;
 }
 
 
@@ -261,7 +276,9 @@ CacheLine *Cache::fillLine(ulong addr) {
     // 
     // NOTE: Must reconstruct base address from tag and index bits
     if (victim->isValid())
-        victimAddr = ((victim->getTag() << (indexbits)) & victim->getIndex()) << offsetbits;
+        victimAddr = getBaseAddr(victim->getTag(), victim->getIndex());
+
+
 
     // If the chosen victim is valid then mark as invalid 
     // in the CCSM

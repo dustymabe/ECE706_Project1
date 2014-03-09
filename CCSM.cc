@@ -5,6 +5,8 @@
 
 #include <assert.h>
 #include "CCSM.h"
+#include "CacheLine.h"
+#include "Tile.h"
 
 // What are these?
 enum{
@@ -22,14 +24,35 @@ enum{
 
 
 //CCSM::CCSM(Bus *b, Cache *c, cacheLine *l) {
-CCSM::CCSM(Cache *c, CacheLine *l) {
+CCSM::CCSM(Tile * t, Cache *c, CacheLine *l) {
 //    bus   = b;
+    tile  = t;
     cache = c;
     line  = l;
     state = STATEI;
 }
 
 void CCSM::setState(int s) {
+
+    // If we are going to the invalid state there
+    // are a few things to do. 
+    if (state != STATEI && s == STATEI) {
+
+
+        // Since L1 and L2 are inclusive and we are invalidating 
+        // out of L2 (only have CCSM in L2) then broadcast 
+        // invalidation to L1s in all Tiles in the partition. 
+        // XXX
+
+      //tile->broadcastToPartition(
+      //    MSG=L1INV,
+      //    cache->getBaseAddr(line->getTag(), line->getIndex())
+      //);
+
+        // set the cache line state to invalid
+        line->invalidate();
+    }
+
     state = s; // Set the new state
 }
 
@@ -106,6 +129,7 @@ void CCSM::busInitBusUpgr() {
             break;
 
         // For S, transistion to I
+        // XXX also need to invalidate in L1
         case STATES:
             setState(STATEI);
 

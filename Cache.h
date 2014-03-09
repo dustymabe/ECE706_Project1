@@ -6,7 +6,6 @@
 #define CACHE_H
 
 #include "types.h"
-#include "CacheLine.h"
 
 #define L1 0
 #define L2 1
@@ -14,7 +13,9 @@
 #define  HIT 0
 #define MISS 1
 
-class CCSM; // Forward Declaration
+class CacheLine; // Forward Declaration
+class CCSM;      // Forward Declaration
+class Tile;      // Forward Declaration  
 
 class Cache {
 protected:
@@ -40,7 +41,7 @@ protected:
 public:
     ulong currentCycle;  
      
-    Cache(int l, int s, int a, int b);
+    Cache(Tile * t, int l, int s, int a, int b);
     ~Cache() { delete cacheArray;}
 
     CacheLine * fillLine(ulong addr);
@@ -65,6 +66,7 @@ public:
 
     ulong calcTag(ulong addr);
     ulong calcIndex(ulong addr);
+    ulong getBaseAddr(ulong tag, ulong index);
 };
 
 #endif
