@@ -7,7 +7,13 @@
 #include <stdio.h>
 #include "Tile.h"
 #include "Cache.h"
+#include "Partition.h"
+#include "Net.h"
 #include "params.h"
+
+
+// Global NETWORK is defined in simulator.cc
+extern Net *NETWORK;
 
 
 Tile::Tile(int number) {
@@ -20,9 +26,15 @@ Tile::Tile(int number) {
     l2cache = new Cache(this, L2, L2SIZE, L2ASSOC, BLKSIZE);
     assert(l2cache);
 
+    part = new Partition(1 << index); // Need to pass in partition information
 }
 
 
+/*
+ * Tile::Access()
+ *     - Access is the function that gets called when a value 
+ *       is to be read/written by the proc in this tile.
+ */
 void Tile::Access(ulong addr, uchar op) {
 
     int state;
@@ -68,6 +80,7 @@ void Tile::Access(ulong addr, uchar op) {
     if (state == MISS && l2cache->getVictimAddr() != 0) {
 
         // broadcast to all L1s the invalidation
+        broadCastToPartition(L1INV, l2cache->getVictimAddr());
 
         // reset victimAddr
         l2cache->setVictimAddr(0);
@@ -75,6 +88,11 @@ void Tile::Access(ulong addr, uchar op) {
 
 }
 
+/*
+ * Tile::PrintStats()
+ *     - Print a header and then query the L1 and L2 to print
+ *       stats about hit/miss rates. etc.
+ */
 void Tile::PrintStats() {
     printf("===== Simulation results (Cache %d L1) =============\n", index);
     l1cache->PrintStats();
@@ -83,13 +101,43 @@ void Tile::PrintStats() {
 }
 
 
-////void Tile::getFromNetwork() {
+/*
+ * Tile::getFromNetwork
+ *     - This function will be called by the Net class and
+ *       represents when a message has been received by this tile
+ *       from the network.
+ */
+void Tile::getFromNetwork(ulong msg, ulong addr) {
 
-////    // Network will call this function when sending a message to this
-////    // tile. 
+    // Network will call this function when sending a message to this
+    // tile. 
+    
+    if (msg == L1INV) {
+        l1cache->invalidateLineIfExists(addr);
+    }
 
-////}
+    // Should not get here.
+    assert(0);
+}
 
-////void Tile::broadCastToPartition() {
-////    // Broadcast to all tiles in partition
-////}
+/*
+ * Tile::broadCastToPartition
+ *     - Broadcast a message to all Tiles in a partition
+ *       regarding the provided addr. Utilizes the partition
+ *       table to determine which tiles are within our partition
+ *       and utilizes the network to send the message.  
+ *
+ */
+#define MAX(x,y) ((x > y) ? x : y);
+void Tile::broadCastToPartition(ulong msg, ulong addr) {
+
+    int i;
+    int max = 0;
+    int vector = part->getVector();
+
+    for(i=0; i < NPROCS; i++)
+        if (vector & (1 << i))
+            max = MAX(max, NETWORK->sendToTile(msg, i, addr));
+
+    // XXX do some housekeeping with max
+}

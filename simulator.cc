@@ -9,7 +9,10 @@
 #include <fstream>
 #include "Cache.h"
 #include "Tile.h"
+#include "Net.h"
 #include "params.h"
+
+Net *NETWORK;
 
 
 int main(int argc, char *argv[]) {
@@ -67,6 +70,9 @@ int main(int argc, char *argv[]) {
     Tile * tiles[NPROCS];
     for (i=0; i < NPROCS; i++)
         tiles[i] = new Tile(i);
+
+
+    NETWORK = new Net(tiles);
 
 
  

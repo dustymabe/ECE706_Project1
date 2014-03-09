@@ -3,7 +3,6 @@
  * cache.cc - Implementation of cache (either L1 or L2)
  */
 
-//##include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
 #include <cmath>
@@ -24,7 +23,6 @@
 Cache::Cache(Tile * t, int l, int s, int a, int b) {
 
     CCSM * ccsm;
-    Tile * tile;
     ulong i, j;
 
     // Initialize all counters
@@ -302,7 +300,30 @@ CacheLine *Cache::fillLine(ulong addr) {
     return victim;
 }
 
+/*
+ * Cache::invalidateLineIfExists
+ *     - This function serves to invalidate a line associated
+ *       with addr if it exists in the cache. 
+ *
+ *       This is primarily used for when invalidation requests
+ *       are sent to the L1 as a result of the line getting evicted
+ *       from the L2 (L1 and L2 are inclusive)
+ */
+void Cache::invalidateLineIfExists(ulong addr) { 
+    CacheLine *line;
+    if (line = findLine(addr)) {
+        
+        printf("Invalidating %x in L1 in Tile %d\n", addr, tile->index); 
+        line->invalidate();
 
+    }
+}
+
+
+/*
+ * Cache::PrintStats
+ *     - Print statistics for this cache.
+ */
 void Cache::PrintStats() {
     printf("01. number of reads:                            %lu\n", reads);
     printf("02. number of read misses:                      %lu\n", readMisses);

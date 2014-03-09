@@ -35,6 +35,9 @@ protected:
     // The 2-dimensional cache
     CacheLine **cacheArray;
 
+    // The tile the cache belongs to
+    Tile * tile;
+
     // Variable to hold the base addr of the last evicted block
     ulong victimAddr;
    
@@ -47,6 +50,8 @@ public:
     CacheLine * fillLine(ulong addr);
     CacheLine * findLine(ulong addr);
     CacheLine * getLRU(ulong);
+
+    void invalidateLineIfExists(ulong addr);
 
     ulong getRM()       { return readMisses;  }
     ulong getWM()       { return writeMisses; }
