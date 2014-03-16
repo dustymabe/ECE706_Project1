@@ -43,7 +43,7 @@ DirEntry::~DirEntry() {
  *    - Build up the data structures that belong to a
  *      directory.
  */
-Dir::Dir() {
+Dir::Dir(int partscheme) {
     int i;
 
     // We need a directory for every block. How many do we need
@@ -65,12 +65,42 @@ Dir::Dir() {
     // NPROCS partitions (i.e. each partition has only one tile)
     parttable = new BitVector*[NPROCS];
 
-    // For now create generic mapping
-    // XXX
-    for (i=0; i < NPROCS; i++) {
-        parttable[i] = new BitVector(1 << i);
+
+    // Based on the partition scheme file in the appropriate
+    // vectors with information.
+    switch (partscheme) {
+
+        case 1:
+            for (i=0; i < NPROCS; i++)
+                parttable[i] = new BitVector(0b1 << i);
+            break;
+
+        case 2:
+            for (i=0; i < NPROCS/2; i++)
+                parttable[i] = new BitVector(0b11 << 2*i);
+            break;
+                                      //   111111 
+        case 4:                       //   5432109876543210
+            parttable[0] = new BitVector(0b0000000000110011);
+            parttable[1] = new BitVector(0b0000000011001100);
+            parttable[2] = new BitVector(0b0011001100000000);
+            parttable[4] = new BitVector(0b1100110000000000);
+            i = 4;
+            break;
+                                      //   111111 
+        case 8:                       //   5432109876543210
+            parttable[0] = new BitVector(0b1111111100000000);
+            parttable[1] = new BitVector(0b0000000011111111);
+            i = 1;
+            break;
+
+        default:
+            assert(0); // Should not get here
     }
 
+    // Populate the remaining bitvectors with emptiness
+    for (; i < NPROCS; i++)
+        parttable[i] = new BitVector(0);
 }
 
 /*

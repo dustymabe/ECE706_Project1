@@ -34,15 +34,15 @@ class Dir {
     private:
 
         DirEntry  **directory;
-        BitVector **parttable; // Table of partitions.
 
         // Array of directory entires (1 for each mem block) each containing
         //  - bitvector representing which parts cache the block
         //  - M/S/I states
 
     public:
+        BitVector **parttable; // Table of partitions.
 
-        Dir();
+        Dir(int partscheme);
         ~Dir();
         int mapAddrToTile(int partid, int blockaddr);
         int mapTileToPart(int tileid);

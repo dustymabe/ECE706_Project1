@@ -18,7 +18,7 @@
 extern Net *NETWORK;
 
 
-Tile::Tile(int number) {
+Tile::Tile(int number, int partition) {
 
     index = number;
 
@@ -28,7 +28,7 @@ Tile::Tile(int number) {
     l2cache = new Cache(this, L2, L2SIZE, L2ASSOC, BLKSIZE);
     assert(l2cache);
 
-    part = new BitVector(1 << index); // Need to pass in partition information
+    part = new BitVector(partition);
 }
 
 

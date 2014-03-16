@@ -7,6 +7,7 @@
 #include <string.h>
 #include <assert.h>
 #include <fstream>
+#include "BitVector.h"
 #include "Cache.h"
 #include "Dir.h"
 #include "Tile.h"
@@ -24,6 +25,8 @@ int main(int argc, char *argv[]) {
     char * token;
     char * op;
     int   proc;
+    int   partscheme;
+    int   partid;
     int   tabular;
     ulong addr;
     Cache ** cacheArray;
@@ -37,6 +40,9 @@ int main(int argc, char *argv[]) {
         printf("./sim <partitions> <trace_file> \n");
         exit(1);
     }
+
+    //Convert the arguments to integer values
+    sscanf(argv[1], "%u", &partscheme);
 
     // Store the filename
     char *fname =  (char *)malloc(100);
@@ -58,6 +64,7 @@ int main(int argc, char *argv[]) {
         printf("BLOCKSIZE:                      %d\n", BLKSIZE);
         printf("NUMBER OF PROCESSORS:           %d\n", NPROCS);
         printf("COHERENCE PROTOCOL:             %s\n", "MESI");
+        printf("TILES PER PARTITION:            %d\n", partscheme);
         printf("TRACE FILE:                     %s\n", basename(fname));
     } 
 ////else {
@@ -66,18 +73,21 @@ int main(int argc, char *argv[]) {
 ////        blk_size, num_processors, CCPROTOCOLS[protocol], basename(fname));
 ////}
 
-
-    // Create a 4x4 array of Tiles here
-    Tile * tiles[NPROCS];
-    for (i=0; i < NPROCS; i++)
-        tiles[i] = new Tile(i);
-
     // Create a new directory. Rather than have 4 directories (one 
     // each corner tile) I am just going to use 1 directory and adjust
     // the math accordingly.
-    Dir *dir = new Dir;
+    Dir *dir = new Dir(partscheme);
     assert(dir);
 
+    // Create a 4x4 array of Tiles here
+    Tile * tiles[NPROCS];
+    for (i=0; i < NPROCS; i++) {
+        partid = dir->mapTileToPart(i);
+        tiles[i] = new Tile(i, dir->parttable[partid]->getVector());
+        assert(tiles[i]);
+    }
+
+    // Create the global network element
     NETWORK = new Net(dir, tiles);
     assert(NETWORK);
 
@@ -134,6 +144,8 @@ int main(int argc, char *argv[]) {
         addr = strtoul(token, NULL, 16);
         //printf("address is: %x\n", (uint) addr);
 
+     ///if (proc == 1)
+     ///    continue;
         tiles[proc]->Access(addr, op[0]);
 
     }

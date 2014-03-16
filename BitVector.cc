@@ -17,6 +17,10 @@ BitVector::BitVector(int value) {
     size   = NPROCS;
 }
 
+int BitVector::getVector() {
+    return vector;
+}
+
 int BitVector::getFirstSetBit() {
     int i;
     for(i=0; i < size; i++) {

@@ -24,7 +24,7 @@ protected:
 public:
     unsigned int index;
 
-    Tile(int number);
+    Tile(int number, int partition);
     ~Tile() {delete l1cache; delete l2cache; };
     void Access(ulong addr, uchar op);
     void L2Access(ulong addr, uchar op);

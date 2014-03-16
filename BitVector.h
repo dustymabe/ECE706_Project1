@@ -9,10 +9,9 @@
 
 class BitVector {
     private:
-        //int vector;
+        int vector;
         
     public:
-        int vector;
         int size;
         BitVector(int value);
         ~BitVector() {};
@@ -21,6 +20,7 @@ class BitVector {
         int getNumSetBits();
         int getBit(int bit);
         int getNthSetBit(int n);
+        int getVector();
 
         void clearAllBits();
         void setBit(int bit);
