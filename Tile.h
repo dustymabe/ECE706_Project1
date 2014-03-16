@@ -27,10 +27,12 @@ public:
     Tile(int number);
     ~Tile() {delete l1cache; delete l2cache; };
     void Access(ulong addr, uchar op);
+    void L2Access(ulong addr, uchar op);
     void PrintStats();
 
     void broadcastToPartition(ulong msg, ulong addr);
     void getFromNetwork(ulong msg, ulong addr);
+    int mapAddrToTile(ulong addr);
 };
 
 #endif

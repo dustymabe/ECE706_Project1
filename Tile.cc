@@ -41,40 +41,64 @@ void Tile::Access(ulong addr, uchar op) {
 
     int state;
 
-    // L1 cache is write-through!!
-
     // L1: Check L1 to see if hit
     state = l1cache->Access(addr, op);
 
+    // If a hit then we are done (almost). Must make any write
+    // hits in the L1 access the L2 as well (WRITETHROUGH).
+    if (state == HIT && op == 'w')
+        L2Access(addr, op); // Aggregate L2 access
 
-    // If a hit then we are done (almost). 
-    //
-    //XXX need to make this check aggregate L2 of partition
-    // can use partition table to determine which L2 cache
-    // the block will be in.
-    if (state == HIT) {
-
-        // Must make any write hits in the L1 access the 
-        // L2 as well (writethrough)
-        if (op == 'w')
-            l2cache->Access(addr, op); // writethrough
-
-        // Now we can return
-        return;
-    }
-
-    //////////////
-    // done with hit
-    //////////////
-    
-    // L2: Check aggregate L2 (logical sharing) to see
-    //     if the block is in the aggregate L2.
-    state = l2cache->Access(addr, op);
-
-    // If hit then done.
+    // Finally, if L1 hit then we are done
     if (state == HIT)
         return;
+    
 
+    // L2: Check aggregate L2 (logical sharing) to see
+    //     if the block is in the aggregate L2.
+    L2Access(addr, op);
+
+}
+
+/*
+ * Tile::L2Access()
+ *     - Provide a generic access function that will access the
+ *       aggregate L2 (logically shared) for a partition. If HIT,
+ *       then L2 returns quickly. If MISS, the L2 will contact the
+ *       Memory controller (directory) and retrieve the value.
+ */
+void Tile::L2Access(ulong addr, uchar op) {
+
+    int tileid = mapAddrToTile(addr);
+    int msg    = (op == 'w') ? L2WR : L2RD;
+    NETWORK->sendTileToTile(msg, addr, index, tileid);
+
+}
+
+/*
+ * Tile::mapAddrToTile
+ *     - Given an address map it to a specific tile 
+ *       within the partition.
+ */
+int Tile::mapAddrToTile(ulong addr) {
+
+    // Get the block address (i.e. minus offset bits)
+    int blockaddr = addr >> OFFSETBITS;
+
+    // Get the number of tiles within the partition
+    int numtiles = part->getNumSetBits();
+
+    // Since the tiles logically share L2 the blocks are
+    // interleaved among the tiles. Find the tile offset
+    // within the partition.
+    int tileoffset = blockaddr % numtiles;
+
+    // Find the actual tile id of the tile. Note: add
+    // 1 because even if offset is 0 we want to find 1st
+    // set bit.
+    int tileid = part->getNthSetBit(tileoffset + 1);
+
+    return tileid;
 }
 
 /*
@@ -98,27 +122,44 @@ void Tile::PrintStats() {
  */
 void Tile::getFromNetwork(ulong msg, ulong addr) {
 
+    CacheLine * line;
+
     // Handle L1 messages first
     if (msg == L1INV) {
         l1cache->invalidateLineIfExists(addr);
         return;
     }
 
-    // Get the L2 cache line that corresponds to addr
-    CacheLine * line = l2cache->findLine(addr);
-    assert(line); // XXX might have to remove this
 
-    // Pass the message on to the CCSM
-    line->ccsm->getFromNetwork(msg);
-  //switch (msg) {
+    // Now handle L2 messages
+    switch (msg) {
 
-  //  d  case INV:
-  //        break;
-  //    case INT:
-  //        break;
-  //    default:
-  //        assert(0); // Should not get here
-  //}
+        case INV:
+        case INT:
+
+            // Get the L2 cache line that corresponds to addr
+            line = l2cache->findLine(addr);
+
+            // If the line has been evicted already then 
+            // nothing to do.
+            if (!line)
+                return;
+
+            // Pass the message on to the CCSM
+            line->ccsm->getFromNetwork(msg);
+            break;
+
+        case L2RD:
+            l2cache->Access(addr, 'r');
+            break;
+
+        case L2WR:
+            l2cache->Access(addr, 'w');
+            break;
+
+        default:
+            assert(0); // Should not get here
+    }
 }
 
 /*

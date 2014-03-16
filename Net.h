@@ -38,6 +38,11 @@ enum {
     // Tile (L2) -> Tile (L1) messages
     // Note: happens when L2 line is evicted
     L1INV,
+
+    // Tile (L1) -> Tile (L2) messages
+    // Note: happens on L1 miss or L1 writethrough
+    L2RD,
+    L2WR,
 };
 
 
