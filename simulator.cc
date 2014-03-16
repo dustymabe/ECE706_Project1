@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <fstream>
 #include "Cache.h"
+#include "Dir.h"
 #include "Tile.h"
 #include "Net.h"
 #include "params.h"
@@ -71,8 +72,14 @@ int main(int argc, char *argv[]) {
     for (i=0; i < NPROCS; i++)
         tiles[i] = new Tile(i);
 
+    // Create a new directory. Rather than have 4 directories (one 
+    // each corner tile) I am just going to use 1 directory and adjust
+    // the math accordingly.
+    Dir *dir = new Dir;
+    assert(dir);
 
-    NETWORK = new Net(tiles);
+    NETWORK = new Net(dir, tiles);
+    assert(NETWORK);
 
 
  

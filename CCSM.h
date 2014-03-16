@@ -6,6 +6,8 @@
 #ifndef CCSM_H
 #define CCSM_H
 
+#include "types.h"
+
 class Cache;     // Forward Declaration
 class CacheLine; // Forward Declaration
 class Tile;      // Forward Declaration
@@ -19,16 +21,14 @@ class CCSM {
         Tile * tile;
 
         CCSM(Tile *t, Cache *c, CacheLine *l); 
-       // CCSM(Bus *b, Cache *c, cacheLine *l); 
         ~CCSM();
         void setState(int s);
         void evict();
-        void getFromBus(unsigned long action);
-        void busInitBusRd();
-        void busInitBusRdX();
-        void busInitBusUpgr();
-        void procInitRd(unsigned long addr);
-        void procInitWr(unsigned long addr);
+        void getFromNetwork(ulong msg);
+        void netInitInv();
+        void netInitInt();
+        void procInitRd(ulong addr);
+        void procInitWr(ulong addr);
 };
 
 #endif

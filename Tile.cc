@@ -7,7 +7,9 @@
 #include <stdio.h>
 #include "Tile.h"
 #include "Cache.h"
-#include "Partition.h"
+#include "CacheLine.h"
+#include "CCSM.h"
+#include "BitVector.h"
 #include "Net.h"
 #include "params.h"
 
@@ -26,7 +28,7 @@ Tile::Tile(int number) {
     l2cache = new Cache(this, L2, L2SIZE, L2ASSOC, BLKSIZE);
     assert(l2cache);
 
-    part = new Partition(1 << index); // Need to pass in partition information
+    part = new BitVector(1 << index); // Need to pass in partition information
 }
 
 
@@ -73,19 +75,6 @@ void Tile::Access(ulong addr, uchar op) {
     if (state == HIT)
         return;
 
-    // If miss in L1 and L2.. then it is possible a block was 
-    // evicted from the L2. If that is the case then we need to 
-    // broadcast an invalidation for that block to all L1 caches in the 
-    // partition.
-    if (state == MISS && l2cache->getVictimAddr() != 0) {
-
-        // broadcast to all L1s the invalidation
-        broadCastToPartition(L1INV, l2cache->getVictimAddr());
-
-        // reset victimAddr
-        l2cache->setVictimAddr(0);
-    }
-
 }
 
 /*
@@ -109,19 +98,31 @@ void Tile::PrintStats() {
  */
 void Tile::getFromNetwork(ulong msg, ulong addr) {
 
-    // Network will call this function when sending a message to this
-    // tile. 
-    
+    // Handle L1 messages first
     if (msg == L1INV) {
         l1cache->invalidateLineIfExists(addr);
+        return;
     }
 
-    // Should not get here.
-    assert(0);
+    // Get the L2 cache line that corresponds to addr
+    CacheLine * line = l2cache->findLine(addr);
+    assert(line); // XXX might have to remove this
+
+    // Pass the message on to the CCSM
+    line->ccsm->getFromNetwork(msg);
+  //switch (msg) {
+
+  //  d  case INV:
+  //        break;
+  //    case INT:
+  //        break;
+  //    default:
+  //        assert(0); // Should not get here
+  //}
 }
 
 /*
- * Tile::broadCastToPartition
+ * Tile::broadcastToPartition
  *     - Broadcast a message to all Tiles in a partition
  *       regarding the provided addr. Utilizes the partition
  *       table to determine which tiles are within our partition
@@ -129,15 +130,14 @@ void Tile::getFromNetwork(ulong msg, ulong addr) {
  *
  */
 #define MAX(x,y) ((x > y) ? x : y);
-void Tile::broadCastToPartition(ulong msg, ulong addr) {
+void Tile::broadcastToPartition(ulong msg, ulong addr) {
 
     int i;
     int max = 0;
-    int vector = part->getVector();
 
-    for(i=0; i < NPROCS; i++)
-        if (vector & (1 << i))
-            max = MAX(max, NETWORK->sendToTile(msg, i, addr));
+    for(i=0; i < part->size; i++)
+        if (part->getBit(i)) 
+            max = MAX(max, NETWORK->sendTileToTile(msg, addr, index, i));
 
     // XXX do some housekeeping with max
 }

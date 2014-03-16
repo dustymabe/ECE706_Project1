@@ -6,14 +6,13 @@
 #include <assert.h>
 #include "CCSM.h"
 #include "CacheLine.h"
+#include "Cache.h"
 #include "Tile.h"
+#include "Dir.h"
+#include "Net.h"
 
-// What are these?
-enum{
-    BUSRD = 0,
-    BUSRDX,
-    BUSUPGR,
-};
+// Global NETWORK is defined in simulator.cc
+extern Net *NETWORK;
 
 enum{
     STATEM = 0,
@@ -22,16 +21,19 @@ enum{
     STATEI,
 };
 
-
-//CCSM::CCSM(Bus *b, Cache *c, cacheLine *l) {
 CCSM::CCSM(Tile * t, Cache *c, CacheLine *l) {
-//    bus   = b;
     tile  = t;
     cache = c;
     line  = l;
     state = STATEI;
 }
 
+/*
+ * CCSM:setState
+ *     - This function serves to change the state of the CCSM
+ *       to s. If we are transitioning to an invalid state then
+ *       there is some housekeeping to do.
+ */
 void CCSM::setState(int s) {
 
     // If we are going to the invalid state there
@@ -42,12 +44,10 @@ void CCSM::setState(int s) {
         // Since L1 and L2 are inclusive and we are invalidating 
         // out of L2 (only have CCSM in L2) then broadcast 
         // invalidation to L1s in all Tiles in the partition. 
-        // XXX
-
-      //tile->broadcastToPartition(
-      //    MSG=L1INV,
-      //    cache->getBaseAddr(line->getTag(), line->getIndex())
-      //);
+        tile->broadcastToPartition(
+            L1INV,
+            cache->getBaseAddr(line->getTag(), line->getIndex())
+        );
 
         // set the cache line state to invalid
         line->invalidate();
@@ -58,31 +58,30 @@ void CCSM::setState(int s) {
 
 void CCSM::evict() {
     // On eviction set the state to invalid
-    // but don't run through the setState() function
-    // because we don't want to increment counters for
-    // evictions
-    state = STATEI;
+    setState(STATEI);
 }
 
 
-void CCSM::busInitBusRdX() {
+void CCSM::netInitInv() {
+
     switch (state) {
 
-        // For M we need to transistion to Invalid state and flush. 
+        // For M we need to transition to Invalid state and flush. 
         case STATEM: 
-//          bus->flush(cache, line);
+            // XXX flush 
+            // NETWORK->net->flushToMem(
             setState(STATEI);
             break;
 
-        // For E&S we need to transistion to Invalid state and optionally flush. 
+        // For E&S we need to transistion to Invalid state
         case STATEE: 
         case STATES: 
-//          bus->flushOpt();
             setState(STATEI);
             break;
 
-        // For invalid state do nothing
+        // For invalid state should not happen
         case STATEI: 
+            assert(0);
             break;
 
         default :
@@ -90,24 +89,23 @@ void CCSM::busInitBusRdX() {
     }
 }
 
-void CCSM::busInitBusRd() {
+void CCSM::netInitInt() {
     switch (state) {
 
         // For M we need to transistion to Shared state and flush. 
         case STATEM: 
-//          bus->flush(cache, line);
+            // XXX flush 
+            // NETWORK->net->flushToMem(
             setState(STATES);
             break;
 
-        // For E we transition to Shared and optionally flush
+        // For E we transition to Shared
         case STATEE:
-//          bus->flushOpt();
             setState(STATES);
             break;
         
         // For S, no need to change state, but we can optionally flush
         case STATES: 
-//          bus->flushOpt();
             break;
 
         // Nothing to do for I
@@ -119,30 +117,30 @@ void CCSM::busInitBusRd() {
     }
 }
 
-void CCSM::busInitBusUpgr() {
-    switch (state) {
-        // For M&E we should never get BUSUPGR since there
-        // should not be more than one copy in the system
-        case STATEM: 
-        case STATEE: 
-            assert(0);
-            break;
+////void CCSM::netInitUpgr() {
+////    switch (state) {
+////        // For M&E we should never get UPGR since there
+////        // should not be more than one copy in the system
+////        case STATEM: 
+////        case STATEE: 
+////            assert(0);
+////            break;
 
-        // For S, transistion to I
-        // XXX also need to invalidate in L1
-        case STATES:
-            setState(STATEI);
+////        // For S, transistion to I
+////        case STATES:
+////            setState(STATEI);
 
-        // For I, do nothing
-        case STATEI: 
-            break;
+////        // For I, do nothing
+////        case STATEI: 
+////            break;
 
-        default :
-            assert(0); // should not get here
-    }
-}
+////        default :
+////            assert(0); // should not get here
+////    }
+////}
 
-void CCSM::procInitWr(unsigned long addr) {
+void CCSM::procInitWr(ulong addr) {
+    int delay;
     switch (state) {
         // Nothing to do for modified state
         case STATEM: 
@@ -153,19 +151,15 @@ void CCSM::procInitWr(unsigned long addr) {
             setState(STATEM);
             break;
 
-        // For S need to send BUSUPGR and go to modified
+        // For S need to send UPGR and go to modified
         case STATES: 
-//          bus->transaction(cache, addr, BUSUPGR);
+            delay = NETWORK->sendTileToDir(UPGR, addr, tile->index);
             setState(STATEM);
             break;
 
-        // For I need to send BUSRDX and go to modified
-        // Also need to check if a flush was performed and
-        // bump cache-to-cache transfers if so.
+        // For I need to send RDX and go to modified
         case STATEI: 
-//          bus->transaction(cache, addr, BUSRDX);
-//          if (bus->isFlushed())
-//              cache->bumpTransfers();
+            delay = NETWORK->sendTileToDir(RDX, addr, tile->index);
             setState(STATEM);
             break;
 
@@ -174,7 +168,8 @@ void CCSM::procInitWr(unsigned long addr) {
     }
 }
 
-void CCSM::procInitRd(unsigned long addr) {
+void CCSM::procInitRd(ulong addr) {
+    int dirstate;
     switch (state) {
         // Nothing to do for M&E&S states
         case STATEM: 
@@ -182,22 +177,14 @@ void CCSM::procInitRd(unsigned long addr) {
         case STATES: 
             break;
 
-        // For I:
-        //  If no other proc has block go to Exclusive
-        //  else go to Shared
-        //
-        // Also need to check if a flush was performed and
-        // bump cache-to-cache transfers if so.
+        // For I, Send RD request to directory and then check
+        // response to see if we should go to E or S states.:
         case STATEI: 
-//          if (!bus->isBlockInAnotherCache(cache, addr))
-//              setState(STATEE);
-//          else
-//              setState(STATES);
-
-//          bus->transaction(cache, addr, BUSRD);
-
-//          if (bus->isFlushed())
-//              cache->bumpTransfers();
+            dirstate = NETWORK->sendTileToDir(RD, addr, tile->index);
+            if (dirstate == DSTATEEM)
+                setState(STATEE);
+            else
+                setState(STATES);
             break;
 
         default :
@@ -205,17 +192,27 @@ void CCSM::procInitRd(unsigned long addr) {
     }
 }
 
-void CCSM::getFromBus(unsigned long action) {
-    switch (action) {
-        case BUSRD: 
-            busInitBusRd();
+void CCSM::getFromNetwork(ulong msg) {
+    switch (msg) {
+
+        // These come from directory
+        case INV: 
+            netInitInv();
             break;
-        case BUSRDX: 
-            busInitBusRdX();
+        case INT: 
+            netInitInt();
             break;
-        case BUSUPGR: 
-            busInitBusUpgr();
-            break;
+     ///case REPLY: 
+     ///    netInitReply();
+     ///    break;
+
+     ///// These come from other tiles.
+     ///case FLUSH:
+     ///    netInitFlush();
+     ///    break;
+     ///case INVACK:
+     ///    netInitFlush();
+     ///    break;
         default :
             assert(0); // should not get here
     }

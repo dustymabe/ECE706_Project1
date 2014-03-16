@@ -17,42 +17,41 @@
 
 #include "types.h"
 
+class Dir;  // Forward Declaration
 class Tile; // Forward Declaration
+
+
+// Message types to be passed back and forth over the network. 
+// Messages go between Directory and Tiles (L2 CCSM), between two
+// Tiles, etc..
+enum {
+
+    // Dir -> Tile (L2 CCSM) messages
+    INV=100, // Invalidation
+    INT,     // Intervention
+
+    // Tile (L2 CCSM) -> Dir messages
+    RD,      // Read
+    RDX,     // Read Exclusive
+    UPGR,    // Upgrade from S to M
+
+    // Tile (L2) -> Tile (L1) messages
+    // Note: happens when L2 line is evicted
+    L1INV,
+};
 
 
 class Net {
 private:
     Tile ** tiles;
-
-
+    Dir  *  dir;
 
 public:
-    Net(Tile ** tiless);
+    Net(Dir * dirr, Tile ** tiless);
     ~Net();
-
-    ulong sendToTile(ulong msg, ulong tileindex, ulong addr);
-    //ulong sendToMem(ulong msg, ulong addr);
-
+    ulong sendTileToTile(ulong msg, ulong addr, ulong fromtile, ulong totile);
+    ulong sendTileToDir(ulong msg, ulong addr, ulong fromtile);
+    ulong sendDirToTile(ulong msg, ulong addr, ulong totile);
 };
-
-//Net *NETWORK;
-
-//  class Bus {
-//  private:
-//      int num_processors;
-//      int flushed;
-//      Cache ** cacheArray;
-
-//  public:
-//      Bus(int nprocs, Cache ** array);
-//      ~Bus();
-//      int isFlushed()     { return flushed; }
-//      void setFlushed()   { flushed = 1;    }
-//      void clearFlushed() { flushed = 0;    }
-//      void transaction(Cache * cache, unsigned long addr, unsigned long val);
-//      int  isBlockInAnotherCache(Cache * cache, unsigned long addr);
-//      void flush(Cache *cache, cacheLine *line);
-//      void flushOpt();
-//  };
 
 #endif
