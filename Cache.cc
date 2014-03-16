@@ -105,8 +105,7 @@ ulong Cache::calcIndex(ulong addr) {
  *       Then left shift that by the number of offset bits. 
  */
 ulong Cache::getBaseAddr(ulong tag, ulong index) {
-    int addr;
-    addr = ((tag << indexbits) & index) << offsetbits;
+    return ((tag << indexbits) | index) << offsetbits;
 }
 
 
@@ -268,24 +267,22 @@ CacheLine *Cache::fillLine(ulong addr) {
     victim = getLRU(addr);
     assert(victim);
 
-    // If the chosen victim is valid then update the cache's
-    // victimAddr variable so that the Tile can know there was an
-    // eviction and can send invalidations to the L1s
-    // 
-    // NOTE: Must reconstruct base address from tag and index bits
-    if (victim->isValid())
-        victimAddr = getBaseAddr(victim->getTag(), victim->getIndex());
+////// If the chosen victim is valid then update the cache's
+////// victimAddr variable so that the Tile can know there was an
+////// eviction and can send invalidations to the L1s
+////// 
+////// NOTE: Must reconstruct base address from tag and index bits
+////if (victim->isValid())
+////    victimAddr = getBaseAddr(victim->getTag(), victim->getIndex());
 
-
+    // If the chosen victim is dirty then update writeBack
+    if (victim->isValid() && victim->getFlags() == DIRTY)
+        writeBack();
 
     // If the chosen victim is valid then mark as invalid 
     // in the CCSM
     if (cacheLevel == L2 && victim->isValid())
         victim->ccsm->evict();
-
-    // If the chosen victim is dirty then update writeBack
-    if (victim->getFlags() == DIRTY)
-        writeBack();
 
     // Since we are placing data into this line
     // then update the LRU information to indicate
@@ -313,7 +310,7 @@ void Cache::invalidateLineIfExists(ulong addr) {
     CacheLine *line;
     if (line = findLine(addr)) {
         
-        printf("Invalidating %x in L1 in Tile %d\n", addr, tile->index); 
+        //printf("Invalidating %x in L1 in Tile %d\n", addr, tile->index); 
         line->invalidate();
 
     }
