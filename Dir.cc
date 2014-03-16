@@ -114,12 +114,11 @@ int Dir::mapTileToPart(int tileid) {
 
 /*
  * Dir::invalidateSharers
- *     - Given a block address use the DirEntry sharers bitvector
- *       to find what partitions share the block. Map the addr
- *       and partid to a specific tile and then send an invalidation
- *       to the tile.
+ *     - Given a block address use the partitions vectors to determine
+ *       what partitions share the block and send invalidations to all
+ *       of them. Skip the pid partition.
  */
-int Dir::invalidateSharers(int blockaddr) {
+int Dir::invalidateSharers(int blockaddr, int pid) {
 
     // Get the bitvector of sharers.
     DirEntry  *de = directory[blockaddr];
@@ -133,6 +132,10 @@ int Dir::invalidateSharers(int blockaddr) {
     // Iterate over sharers and send INV to any that
     // exist. Also clear bit from vector.
     for(partid=0; partid < bv->size; partid++) {
+
+        if (partid == pid)
+            continue;
+
         if (bv->getBit(partid)) {
             // Get the actual tileid of the tile within the
             // partition that is responsible for blockaddr
@@ -239,7 +242,7 @@ void Dir::netInitRdX(ulong blockaddr, ulong partid) {
         // and reply with data to new owner. Will stay in M state.
         case DSTATEEM: 
             // Invalidate current owner.
-            invalidateSharers(blockaddr);
+            invalidateSharers(blockaddr, partid);
             // Add new owner to bit map.
             de->sharers->setBit(partid);
             break;
@@ -248,7 +251,7 @@ void Dir::netInitRdX(ulong blockaddr, ulong partid) {
         // sharers.
         case DSTATES: 
             // Invalidate all sharers
-            invalidateSharers(blockaddr);
+            invalidateSharers(blockaddr, partid);
             // Add new owner to bit map.
             de->sharers->setBit(partid);
             // Transition to EM
@@ -332,7 +335,7 @@ void Dir::netInitUpgr(ulong blockaddr, ulong partid) {
             // the bit related to partid because that one 
             // shouldn't be invalidated.
             de->sharers->clearBit(partid);
-            invalidateSharers(blockaddr);
+            invalidateSharers(blockaddr, partid);
             // Transition to EM
             setState(blockaddr, DSTATEEM);
             // Add partid back into sharers bit map.

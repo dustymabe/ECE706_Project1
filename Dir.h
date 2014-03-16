@@ -46,7 +46,7 @@ class Dir {
         ~Dir();
         int mapAddrToTile(int partid, int blockaddr);
         int mapTileToPart(int tileid);
-        int invalidateSharers(int blockaddr);
+        int invalidateSharers(int blockaddr, int partid);
         int interveneOwner(int blockaddr);
         void setState(ulong blockaddr, int s);
         ulong getFromNetwork(ulong msg, ulong addr, ulong fromtile);
