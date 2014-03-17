@@ -82,16 +82,13 @@ void Tile::L2Access(ulong addr, uchar op) {
  */
 int Tile::mapAddrToTile(ulong addr) {
 
-    // Get the block address (i.e. minus offset bits)
-    int blockaddr = addr >> OFFSETBITS;
-
     // Get the number of tiles within the partition
     int numtiles = part->getNumSetBits();
 
     // Since the tiles logically share L2 the blocks are
     // interleaved among the tiles. Find the tile offset
     // within the partition.
-    int tileoffset = blockaddr % numtiles;
+    int tileoffset = ADDRHASH(addr) % numtiles;
 
     // Find the actual tile id of the tile. Note: add
     // 1 because even if offset is 0 we want to find 1st

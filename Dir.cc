@@ -13,6 +13,8 @@
 #include "Tile.h"
 #include "types.h"
 
+#define BLKADDR(addr) (addr >> OFFSETBITS)
+
 // Global NETWORK is defined in simulator.cc
 extern Net *NETWORK;
 
@@ -104,7 +106,7 @@ Dir::Dir(int partscheme) {
  *     - Given an address and a partition ID, map them
  *       to a specific tile within the partition. 
  */
-int Dir::mapAddrToTile(int partid, int blockaddr) {
+int Dir::mapAddrToTile(int partid, int addr) {
 
     // Get the vector representing the partition
     BitVector *bv = parttable[partid];
@@ -115,7 +117,7 @@ int Dir::mapAddrToTile(int partid, int blockaddr) {
     // Since the tiles logically share L2 the blocks are 
     // interleaved among the tiles. Find the tile offset
     // within the partition.
-    int tileoffset = blockaddr % numtiles; 
+    int tileoffset = ADDRHASH(addr) % numtiles; 
 
     // Find the actual tile id of the tile. Note: add
     // 1 because even if offset is 0 we want to find 1st
@@ -144,10 +146,10 @@ int Dir::mapTileToPart(int tileid) {
  *       what partitions share the block and send invalidations to all
  *       of them. Skip the pid partition.
  */
-int Dir::invalidateSharers(int blockaddr, int pid) {
+int Dir::invalidateSharers(int addr, int pid) {
 
     // Get the bitvector of sharers.
-    DirEntry  *de = directory[blockaddr];
+    DirEntry  *de = directory[BLKADDR(addr)];
     BitVector *bv = de->sharers;
 
     //printf("Sharers are %x\n", bv->vector);
@@ -164,9 +166,9 @@ int Dir::invalidateSharers(int blockaddr, int pid) {
 
         if (bv->getBit(partid)) {
             // Get the actual tileid of the tile within the
-            // partition that is responsible for blockaddr
-            tileid = mapAddrToTile(partid, blockaddr);
-            NETWORK->sendDirToTile(INV, blockaddr << OFFSETBITS, tileid);
+            // partition that is responsible for addr
+            tileid = mapAddrToTile(partid, addr);
+            NETWORK->sendDirToTile(INV, addr, tileid);
             bv->clearBit(partid);
         }
     }
@@ -179,9 +181,9 @@ int Dir::invalidateSharers(int blockaddr, int pid) {
  *       and partid to a specific tile and then send an intervention
  *       to the tile.
  */
-int Dir::interveneOwner(int blockaddr) {
+int Dir::interveneOwner(int addr) {
     // Get the bitvector of sharers.
-    DirEntry  *de = directory[blockaddr];
+    DirEntry  *de = directory[BLKADDR(addr)];
     BitVector *bv = de->sharers;
 
     int tileid;
@@ -192,9 +194,9 @@ int Dir::interveneOwner(int blockaddr) {
     for(partid=0; partid < bv->size; partid++) {
         if (bv->getBit(partid)) {
             // Get the actual tileid of the tile within the
-            // partition that is responsible for blockaddr
-            tileid = mapAddrToTile(partid, blockaddr);
-            NETWORK->sendDirToTile(INT, blockaddr << OFFSETBITS, tileid);
+            // partition that is responsible for addr
+            tileid = mapAddrToTile(partid, addr);
+            NETWORK->sendDirToTile(INT, addr, tileid);
         }
     }
 }
@@ -205,9 +207,9 @@ int Dir::interveneOwner(int blockaddr) {
  *       entry to s. If we are transitioning to an invalid state then
  *       there is some housekeeping to do.
  */
-void Dir::setState(ulong blockaddr, int s) {
+void Dir::setState(ulong addr, int s) {
 
-    DirEntry * de = directory[blockaddr];
+    DirEntry * de = directory[BLKADDR(addr)];
     assert(de); // verify de is not NULL
 
     de->state = s; // Set the new state
@@ -228,7 +230,7 @@ void Dir::setState(ulong blockaddr, int s) {
 ulong Dir::getFromNetwork(ulong msg, ulong addr, ulong fromtile) {
 
     // Get the blockaddr
-    ulong blockaddr = addr >> OFFSETBITS;
+    ulong blockaddr = BLKADDR(addr);
 
     // Get the partition that the tile belongs to
     ulong partid = mapTileToPart(fromtile); 
@@ -238,13 +240,13 @@ ulong Dir::getFromNetwork(ulong msg, ulong addr, ulong fromtile) {
 
     switch (msg) {
         case RD: 
-            netInitRd(blockaddr, partid);
+            netInitRd(addr, partid);
             break;
         case RDX: 
-            netInitRdX(blockaddr, partid);
+            netInitRdX(addr, partid);
             break;
         case UPGR: 
-            netInitUpgr(blockaddr, partid);
+            netInitUpgr(addr, partid);
             break;
         default :
             assert(0); // should not get here
@@ -258,9 +260,9 @@ ulong Dir::getFromNetwork(ulong msg, ulong addr, ulong fromtile) {
  *     - This function handles the logic for when a RdX request
  *       is delivered to the directory.
  */
-void Dir::netInitRdX(ulong blockaddr, ulong partid) {
+void Dir::netInitRdX(ulong addr, ulong partid) {
 
-    DirEntry * de = directory[blockaddr];
+    DirEntry * de = directory[BLKADDR(addr)];
 
     switch (de->state) {
 
@@ -268,7 +270,7 @@ void Dir::netInitRdX(ulong blockaddr, ulong partid) {
         // and reply with data to new owner. Will stay in M state.
         case DSTATEEM: 
             // Invalidate current owner.
-            invalidateSharers(blockaddr, partid);
+            invalidateSharers(addr, partid);
             // Add new owner to bit map.
             de->sharers->setBit(partid);
             break;
@@ -277,11 +279,11 @@ void Dir::netInitRdX(ulong blockaddr, ulong partid) {
         // sharers.
         case DSTATES: 
             // Invalidate all sharers
-            invalidateSharers(blockaddr, partid);
+            invalidateSharers(addr, partid);
             // Add new owner to bit map.
             de->sharers->setBit(partid);
             // Transition to EM
-            setState(blockaddr, DSTATEEM);
+            setState(addr, DSTATEEM);
             break;
 
         // For invalid state just transition to M
@@ -289,7 +291,7 @@ void Dir::netInitRdX(ulong blockaddr, ulong partid) {
             // Add new owner to bit map.
             de->sharers->setBit(partid);
             // Transition to EM
-            setState(blockaddr, DSTATEEM);
+            setState(addr, DSTATEEM);
             break;
 
         default :
@@ -303,9 +305,9 @@ void Dir::netInitRdX(ulong blockaddr, ulong partid) {
  *     - This function handles the logic for when a Rd request
  *       is delivered to the directory.
  */
-void Dir::netInitRd(ulong blockaddr, ulong partid) {
+void Dir::netInitRd(ulong addr, ulong partid) {
 
-    DirEntry * de = directory[blockaddr];
+    DirEntry * de = directory[BLKADDR(addr)];
 
     switch (de->state) {
 
@@ -313,11 +315,11 @@ void Dir::netInitRd(ulong blockaddr, ulong partid) {
         // and send an intervention to previous owner.
         case DSTATEEM: 
             // send intervention
-            interveneOwner(blockaddr);
+            interveneOwner(addr);
             // Add new sharer to bit map.
             de->sharers->setBit(partid);
             // Transition to S
-            setState(blockaddr, DSTATES);
+            setState(addr, DSTATES);
             break;
 
         // For S, no need to change state
@@ -331,7 +333,7 @@ void Dir::netInitRd(ulong blockaddr, ulong partid) {
             // Add new sharer to bit map.
             de->sharers->setBit(partid);
             // Transition to EM
-            setState(blockaddr, DSTATEEM);
+            setState(addr, DSTATEEM);
             break;
 
         default :
@@ -344,9 +346,9 @@ void Dir::netInitRd(ulong blockaddr, ulong partid) {
  *     - This function handles the logic for when an Upgr request
  *       is delivered to the directory.
  */
-void Dir::netInitUpgr(ulong blockaddr, ulong partid) {
+void Dir::netInitUpgr(ulong addr, ulong partid) {
 
-    DirEntry * de = directory[blockaddr];
+    DirEntry * de = directory[BLKADDR(addr)];
 
     switch (de->state) {
         // For ME we should never get UPGR since there
@@ -361,9 +363,9 @@ void Dir::netInitUpgr(ulong blockaddr, ulong partid) {
             // the bit related to partid because that one 
             // shouldn't be invalidated.
             de->sharers->clearBit(partid);
-            invalidateSharers(blockaddr, partid);
+            invalidateSharers(addr, partid);
             // Transition to EM
-            setState(blockaddr, DSTATEEM);
+            setState(addr, DSTATEEM);
             // Add partid back into sharers bit map.
             de->sharers->setBit(partid);
             break;
