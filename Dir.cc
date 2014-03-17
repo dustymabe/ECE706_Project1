@@ -61,9 +61,11 @@ Dir::Dir(int partscheme) {
     for (i=0; i < (1<<26); i++)
         assert(directory[i] == NULL);
 
-    // We need a table of partition vectors. There can be at most
-    // NPROCS partitions (i.e. each partition has only one tile)
-    parttable = new BitVector*[NPROCS];
+    // Calculate the # of partitions in the system.
+    numparts = NPROCS/partscheme;
+
+    // We need a table of partition vectors.
+    parttable = new BitVector*[numparts];
 
 
     // Based on the partition scheme file in the appropriate
@@ -71,12 +73,12 @@ Dir::Dir(int partscheme) {
     switch (partscheme) {
 
         case 1:
-            for (i=0; i < NPROCS; i++)
+            for (i=0; i < numparts; i++)
                 parttable[i] = new BitVector(0b1 << i);
             break;
 
         case 2:
-            for (i=0; i < NPROCS/2; i++)
+            for (i=0; i < numparts; i++)
                 parttable[i] = new BitVector(0b11 << 2*i);
             break;
                                       //   111111 
@@ -84,23 +86,17 @@ Dir::Dir(int partscheme) {
             parttable[0] = new BitVector(0b0000000000110011);
             parttable[1] = new BitVector(0b0000000011001100);
             parttable[2] = new BitVector(0b0011001100000000);
-            parttable[4] = new BitVector(0b1100110000000000);
-            i = 4;
+            parttable[3] = new BitVector(0b1100110000000000);
             break;
                                       //   111111 
         case 8:                       //   5432109876543210
             parttable[0] = new BitVector(0b1111111100000000);
             parttable[1] = new BitVector(0b0000000011111111);
-            i = 1;
             break;
 
         default:
             assert(0); // Should not get here
     }
-
-    // Populate the remaining bitvectors with emptiness
-    for (; i < NPROCS; i++)
-        parttable[i] = new BitVector(0);
 }
 
 /*
@@ -135,7 +131,7 @@ int Dir::mapAddrToTile(int partid, int blockaddr) {
  */
 int Dir::mapTileToPart(int tileid) {
     int i;
-    for (i=0; i < NPROCS; i++)
+    for (i=0; i < numparts; i++)
         if (parttable[i]->getBit(tileid))
             return i;
 

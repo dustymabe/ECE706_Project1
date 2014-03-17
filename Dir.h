@@ -42,6 +42,8 @@ class Dir {
     public:
         BitVector **parttable; // Table of partitions.
 
+        int numparts; // # of partitions in the system
+
         Dir(int partscheme);
         ~Dir();
         int mapAddrToTile(int partid, int blockaddr);
