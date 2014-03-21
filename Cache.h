@@ -38,9 +38,6 @@ protected:
     // The tile the cache belongs to
     Tile * tile;
 
-    // Variable to hold the base addr of the last evicted block
-    ulong victimAddr;
-   
 public:
     ulong currentCycle;  
      
@@ -59,9 +56,6 @@ public:
     ulong getWrites()   { return writes;      }
     ulong getWB()       { return writeBacks;  }
     void writeBack()    { writeBacks++;       }
-
-    ulong getVictimAddr()        { return victimAddr;  }
-    void  setVictimAddr(ulong a) { victimAddr = a;     }
 
     ulong Access(ulong, uchar);
     void PrintStats();

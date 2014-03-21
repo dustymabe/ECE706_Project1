@@ -32,9 +32,6 @@ Cache::Cache(Tile * t, int l, int s, int a, int b) {
     writeMisses  = 0;
     reads = writes = 0;
 
-    // Initialize the victimAddr variable
-    victimAddr = 0;
-
     // Process arguments
     tile       = t;
     cacheLevel = l;
@@ -266,14 +263,6 @@ CacheLine *Cache::fillLine(ulong addr) {
     // Get the LRU block (or invalid block)
     victim = getLRU(addr);
     assert(victim);
-
-////// If the chosen victim is valid then update the cache's
-////// victimAddr variable so that the Tile can know there was an
-////// eviction and can send invalidations to the L1s
-////// 
-////// NOTE: Must reconstruct base address from tag and index bits
-////if (victim->isValid())
-////    victimAddr = getBaseAddr(victim->getTag(), victim->getIndex());
 
     // If the chosen victim is dirty then update writeBack
     if (victim->isValid() && victim->getFlags() == DIRTY)
