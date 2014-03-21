@@ -96,6 +96,11 @@ Dir::Dir(int partscheme) {
             parttable[1] = new BitVector(0b0000000011111111);
             break;
 
+                                      //   111111 
+        case 16:                      //   5432109876543210
+            parttable[0] = new BitVector(0b1111111111111111);
+            break;
+
         default:
             assert(0); // Should not get here
     }
