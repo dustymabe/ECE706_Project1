@@ -237,21 +237,18 @@ ulong Dir::getFromNetwork(ulong msg, ulong addr, ulong fromtile) {
     // Get the blockaddr
     ulong blockaddr = BLKADDR(addr);
 
-    // Get the partition that the tile belongs to
-    ulong partid = mapTileToPart(fromtile); 
-
     if (directory[blockaddr] == NULL)
         directory[blockaddr] = new DirEntry(blockaddr);
 
     switch (msg) {
         case RD: 
-            netInitRd(addr, partid);
+            netInitRd(addr, fromtile);
             break;
         case RDX: 
-            netInitRdX(addr, partid);
+            netInitRdX(addr, fromtile);
             break;
         case UPGR: 
-            netInitUpgr(addr, partid);
+            netInitUpgr(addr, fromtile);
             break;
         default :
             assert(0); // should not get here
@@ -265,9 +262,12 @@ ulong Dir::getFromNetwork(ulong msg, ulong addr, ulong fromtile) {
  *     - This function handles the logic for when a RdX request
  *       is delivered to the directory.
  */
-void Dir::netInitRdX(ulong addr, ulong partid) {
+void Dir::netInitRdX(ulong addr, ulong fromtile) {
 
     DirEntry * de = directory[BLKADDR(addr)];
+
+    // Get the partition that the tile belongs to
+    ulong partid = mapTileToPart(fromtile); 
 
     switch (de->state) {
 
@@ -276,11 +276,13 @@ void Dir::netInitRdX(ulong addr, ulong partid) {
         case DSTATEEM: 
             // Invalidate current owner.
             invalidateSharers(addr, partid);
+            // Simulate replying with data
+            //tile[fromtile]->
             // Add new owner to bit map.
             de->sharers->setBit(partid);
             break;
 
-        // For S we need to transistion to M and invalidate all
+        // For S we need to transition to M and invalidate all
         // sharers.
         case DSTATES: 
             // Invalidate all sharers
@@ -310,9 +312,12 @@ void Dir::netInitRdX(ulong addr, ulong partid) {
  *     - This function handles the logic for when a Rd request
  *       is delivered to the directory.
  */
-void Dir::netInitRd(ulong addr, ulong partid) {
+void Dir::netInitRd(ulong addr, ulong fromtile) {
 
     DirEntry * de = directory[BLKADDR(addr)];
+
+    // Get the partition that the tile belongs to
+    ulong partid = mapTileToPart(fromtile); 
 
     switch (de->state) {
 
@@ -351,9 +356,11 @@ void Dir::netInitRd(ulong addr, ulong partid) {
  *     - This function handles the logic for when an Upgr request
  *       is delivered to the directory.
  */
-void Dir::netInitUpgr(ulong addr, ulong partid) {
+void Dir::netInitUpgr(ulong addr, ulong fromtile) {
 
     DirEntry * de = directory[BLKADDR(addr)];
+    // Get the partition that the tile belongs to
+    ulong partid = mapTileToPart(fromtile); 
 
     switch (de->state) {
         // For ME we should never get UPGR since there
