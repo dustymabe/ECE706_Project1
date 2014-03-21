@@ -39,7 +39,8 @@ protected:
     Tile * tile;
 
 public:
-    ulong currentCycle;  
+    // Variable to keep up with global LRU
+    ulong lruCounter;  
      
     Cache(Tile * t, int l, int s, int a, int b);
     ~Cache() { delete cacheArray;}

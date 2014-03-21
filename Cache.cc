@@ -26,7 +26,7 @@ Cache::Cache(Tile * t, int l, int s, int a, int b) {
     ulong i, j;
 
     // Initialize all counters
-    currentCycle = 0;
+    lruCounter   = 0;
     writeBacks   = 0;
     readMisses   = 0;
     writeMisses  = 0;
@@ -119,7 +119,7 @@ ulong Cache::Access(ulong addr, uchar op) {
 
     // Per cache global counter to maintain LRU order
     // among cache ways; updated on every cache access.
-    currentCycle++;
+    lruCounter++;
 
     // Clear the bus indicator that a flush has been performed
   //bus->clearFlushed();
@@ -205,7 +205,7 @@ CacheLine * Cache::findLine(ulong addr) {
  *       the current cycle.
  */
 void Cache::updateLRU(CacheLine *line) {
-    line->setSeq(currentCycle);  
+    line->setSeq(lruCounter);  
 }
 
 /*
@@ -223,8 +223,8 @@ CacheLine * Cache::getLRU(ulong addr) {
     // set victim = assoc (an impossible value)
     victim = assoc;
 
-    // set min to currentCycle (max possible seq)
-    min   = currentCycle;
+    // set min to current lruCounter (max possible seq)
+    min = lruCounter;
 
     // Calculate set index
     index = calcIndex(addr);
