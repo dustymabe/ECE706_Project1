@@ -16,6 +16,8 @@
 
 Net *NETWORK;
 
+ulong CURRENTDELAY = 0;
+
 
 int main(int argc, char *argv[]) {
     
@@ -144,8 +146,6 @@ int main(int argc, char *argv[]) {
         addr = strtoul(token, NULL, 16);
         //printf("address is: %x\n", (uint) addr);
 
-     ///if (proc == 1)
-     ///    continue;
         tiles[proc]->Access(addr, op[0]);
 
     }

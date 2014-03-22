@@ -64,12 +64,13 @@ void CCSM::evict() {
 
 void CCSM::netInitInv() {
 
+    int addr = cache->getBaseAddr(line->getTag(), line->getIndex());
+
     switch (state) {
 
         // For M we need to transition to Invalid state and flush. 
         case STATEM: 
-            // XXX flush 
-            // NETWORK->net->flushToMem(
+            NETWORK->flushToMem(addr, tile->index);
             setState(STATEI);
             break;
 
@@ -90,12 +91,14 @@ void CCSM::netInitInv() {
 }
 
 void CCSM::netInitInt() {
+
+    int addr = cache->getBaseAddr(line->getTag(), line->getIndex());
+
     switch (state) {
 
         // For M we need to transistion to Shared state and flush. 
         case STATEM: 
-            // XXX flush 
-            // NETWORK->net->flushToMem(
+            NETWORK->flushToMem(addr, tile->index);
             setState(STATES);
             break;
 
@@ -117,30 +120,8 @@ void CCSM::netInitInt() {
     }
 }
 
-////void CCSM::netInitUpgr() {
-////    switch (state) {
-////        // For M&E we should never get UPGR since there
-////        // should not be more than one copy in the system
-////        case STATEM: 
-////        case STATEE: 
-////            assert(0);
-////            break;
-
-////        // For S, transistion to I
-////        case STATES:
-////            setState(STATEI);
-
-////        // For I, do nothing
-////        case STATEI: 
-////            break;
-
-////        default :
-////            assert(0); // should not get here
-////    }
-////}
-
 void CCSM::procInitWr(ulong addr) {
-    int delay;
+
     switch (state) {
         // Nothing to do for modified state
         case STATEM: 
@@ -153,13 +134,13 @@ void CCSM::procInitWr(ulong addr) {
 
         // For S need to send UPGR and go to modified
         case STATES: 
-            delay = NETWORK->sendTileToDir(UPGR, addr, tile->index);
+            NETWORK->sendReqTileToDir(UPGR, addr, tile->index);
             setState(STATEM);
             break;
 
         // For I need to send RDX and go to modified
         case STATEI: 
-            delay = NETWORK->sendTileToDir(RDX, addr, tile->index);
+            NETWORK->sendReqTileToDir(RDX, addr, tile->index);
             setState(STATEM);
             break;
 
@@ -180,7 +161,7 @@ void CCSM::procInitRd(ulong addr) {
         // For I, Send RD request to directory and then check
         // response to see if we should go to E or S states.:
         case STATEI: 
-            dirstate = NETWORK->sendTileToDir(RD, addr, tile->index);
+            dirstate = NETWORK->sendReqTileToDir(RD, addr, tile->index);
             if (dirstate == DSTATEEM)
                 setState(STATEE);
             else

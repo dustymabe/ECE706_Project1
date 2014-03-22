@@ -10,6 +10,10 @@
 #include "CacheLine.h"
 #include "CCSM.h"
 #include "Tile.h"
+#include "params.h"
+
+// Global delay counter for the current outstanding memory request.
+extern int CURRENTDELAY;
 
 /*
  * Cache::Cache - create a new cache object.
@@ -116,6 +120,12 @@ ulong Cache::getBaseAddr(ulong tag, ulong index) {
 ulong Cache::Access(ulong addr, uchar op) {
     CacheLine * line;
     int state;
+
+    // Update global delay counter with access time
+    if (cacheLevel == L2)
+        CURRENTDELAY += L2ATIME;
+    else
+        CURRENTDELAY += L1ATIME;
 
     // Per cache global counter to maintain LRU order
     // among cache ways; updated on every cache access.

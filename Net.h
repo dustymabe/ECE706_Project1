@@ -54,9 +54,16 @@ private:
 public:
     Net(Dir * dirr, Tile ** tiless);
     ~Net();
-    ulong sendTileToTile(ulong msg, ulong addr, ulong fromtile, ulong totile);
-    ulong sendTileToDir(ulong msg, ulong addr, ulong fromtile);
-    ulong sendDirToTile(ulong msg, ulong addr, ulong totile);
+    ulong sendReqTileToTile(ulong msg, ulong addr, ulong fromtile, ulong totile);
+    ulong sendReqDirToTile( ulong msg, ulong addr, ulong totile);
+    ulong sendReqTileToDir( ulong msg, ulong addr, ulong fromtile);
+
+    ulong fakeReqDirToTile(ulong addr, ulong totile);
+    ulong fakeDataTileToTile(ulong fromtile, ulong totile);
+    ulong fakeDataDirToTile(ulong addr, ulong totile);
+    ulong flushToMem(ulong addr, ulong fromtile);
+    ulong calcTileToDirHops(ulong addr, ulong tile);
+    ulong calcTileToTileHops(ulong fromtile, ulong totile);
 };
 
 #endif

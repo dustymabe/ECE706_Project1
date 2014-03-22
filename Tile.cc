@@ -17,10 +17,16 @@
 // Global NETWORK is defined in simulator.cc
 extern Net *NETWORK;
 
+// Global delay counter for the current outstanding memory request.
+extern int CURRENTDELAY;
+
 
 Tile::Tile(int number, int partition) {
 
-    index = number;
+    index  = number;
+    xindex = index / SQRTNPROCS;  
+    yindex = index % SQRTNPROCS;  
+    cycle = 0;
 
     l1cache = new Cache(this, L1, L1SIZE, L1ASSOC, BLKSIZE);
     assert(l1cache);
@@ -38,8 +44,10 @@ Tile::Tile(int number, int partition) {
  *       is to be read/written by the proc in this tile.
  */
 void Tile::Access(ulong addr, uchar op) {
-
     int state;
+
+    // Reset global CURRENTDELAY counter 
+    CURRENTDELAY = 0;
 
     // L1: Check L1 to see if hit
     state = l1cache->Access(addr, op);
@@ -49,15 +57,14 @@ void Tile::Access(ulong addr, uchar op) {
     if (state == HIT && op == 'w')
         L2Access(addr, op); // Aggregate L2 access
 
-    // Finally, if L1 hit then we are done
-    if (state == HIT)
-        return;
+    // L2L If the L1 Missed then access the aggregate L2
+    if (state == MISS)
+        L2Access(addr, op);
+
+    // All accesses are done so add the accumulated delay
+    // to the cycle counter.
+    cycle += CURRENTDELAY;
     
-
-    // L2: Check aggregate L2 (logical sharing) to see
-    //     if the block is in the aggregate L2.
-    L2Access(addr, op);
-
 }
 
 /*
@@ -71,8 +78,7 @@ void Tile::L2Access(ulong addr, uchar op) {
 
     int tileid = mapAddrToTile(addr);
     int msg    = (op == 'w') ? L2WR : L2RD;
-    NETWORK->sendTileToTile(msg, addr, index, tileid);
-
+    NETWORK->sendReqTileToTile(msg, addr, index, tileid);
 }
 
 /*
@@ -104,6 +110,8 @@ int Tile::mapAddrToTile(ulong addr) {
  *       stats about hit/miss rates. etc.
  */
 void Tile::PrintStats() {
+    printf("===== Simulation results (Tile %d)     =============\n", index);
+    printf("00. cycle completed:                            %lu\n",  cycle);
     printf("===== Simulation results (Cache %d L1) =============\n", index);
     l1cache->PrintStats();
     printf("===== Simulation results (Cache %d L2) =============\n", index);
@@ -117,13 +125,14 @@ void Tile::PrintStats() {
  *       represents when a message has been received by this tile
  *       from the network.
  */
-void Tile::getFromNetwork(ulong msg, ulong addr) {
+void Tile::getFromNetwork(ulong msg, ulong addr, ulong fromtile) {
 
     CacheLine * line;
 
     // Handle L1 messages first
     if (msg == L1INV) {
         l1cache->invalidateLineIfExists(addr);
+        CURRENTDELAY += L1ATIME;
         return;
     }
 
@@ -136,6 +145,7 @@ void Tile::getFromNetwork(ulong msg, ulong addr) {
 
             // Get the L2 cache line that corresponds to addr
             line = l2cache->findLine(addr);
+            CURRENTDELAY += L2ATIME;
 
             // If the line has been evicted already then 
             // nothing to do.
@@ -148,10 +158,14 @@ void Tile::getFromNetwork(ulong msg, ulong addr) {
 
         case L2RD:
             l2cache->Access(addr, 'r');
+            // Fake sending back data to the requesting tile
+            NETWORK->fakeDataTileToTile(index, fromtile);
             break;
 
         case L2WR:
             l2cache->Access(addr, 'w');
+            // Fake sending back data to the requesting tile
+            NETWORK->fakeDataTileToTile(index, fromtile);
             break;
 
         default:
@@ -167,15 +181,25 @@ void Tile::getFromNetwork(ulong msg, ulong addr) {
  *       and utilizes the network to send the message.  
  *
  */
-#define MAX(x,y) ((x > y) ? x : y);
 void Tile::broadcastToPartition(ulong msg, ulong addr) {
 
     int i;
     int max = 0;
 
-    for(i=0; i < part->size; i++)
-        if (part->getBit(i)) 
-            max = MAX(max, NETWORK->sendTileToTile(msg, addr, index, i));
+    // Lets play a game with CURRENTDELAY. Since this stuff is
+    // done in parallel we will save off the original value and
+    // then find the max delay of all parallel requests. 
+    ulong origDelay = CURRENTDELAY;
+    CURRENTDELAY  = 0;
 
-    // XXX do some housekeeping with max
+    for(i=0; i < part->size; i++) {
+        if (part->getBit(i)) {
+            NETWORK->sendReqTileToTile(msg, addr, index, i);
+            max = MAX(max, CURRENTDELAY);
+            CURRENTDELAY = 0; // Reset for next iter
+        }
+    }
+
+    // Add the max to the original delay
+    CURRENTDELAY = origDelay + max;
 }

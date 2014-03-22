@@ -18,11 +18,12 @@ protected:
     Cache * l2cache;
     BitVector * part;
 
-////unsigned int xindex;
-////unsigned int yindex;
    
 public:
     unsigned int index;
+    unsigned int xindex;
+    unsigned int yindex;
+    unsigned int cycle;
 
     Tile(int number, int partition);
     ~Tile() {delete l1cache; delete l2cache; };
@@ -31,7 +32,7 @@ public:
     void PrintStats();
 
     void broadcastToPartition(ulong msg, ulong addr);
-    void getFromNetwork(ulong msg, ulong addr);
+    void getFromNetwork(ulong msg, ulong addr, ulong fromtile);
     int mapAddrToTile(ulong addr);
 };
 

@@ -13,10 +13,12 @@
 #include "Tile.h"
 #include "types.h"
 
-#define BLKADDR(addr) (addr >> OFFSETBITS)
 
 // Global NETWORK is defined in simulator.cc
 extern Net *NETWORK;
+
+// Global delay counter for the current outstanding memory request.
+extern int CURRENTDELAY;
 
 /*
  * DirEntry constructor
@@ -152,6 +154,13 @@ int Dir::mapTileToPart(int tileid) {
  *       of them. Skip the pid partition.
  */
 int Dir::invalidateSharers(int addr, int pid) {
+    int max = 0;
+
+    // Lets play a game with CURRENTDELAY. Since this stuff is
+    // done in parallel we will save off the original value and
+    // then find the max delay of all parallel requests. 
+    ulong origDelay = CURRENTDELAY;
+    CURRENTDELAY  = 0;
 
     // Get the bitvector of sharers.
     DirEntry  *de = directory[BLKADDR(addr)];
@@ -170,13 +179,22 @@ int Dir::invalidateSharers(int addr, int pid) {
             continue;
 
         if (bv->getBit(partid)) {
+
             // Get the actual tileid of the tile within the
             // partition that is responsible for addr
             tileid = mapAddrToTile(partid, addr);
-            NETWORK->sendDirToTile(INV, addr, tileid);
+            NETWORK->sendReqDirToTile(INV, addr, tileid);
             bv->clearBit(partid);
+
+            // Update max and reset
+            max = MAX(max, CURRENTDELAY);
+            CURRENTDELAY = 0; // Reset for next iter
         }
     }
+
+    // Add the max to the original delay
+    CURRENTDELAY = origDelay + max;
+
 }
 
 /*
@@ -201,7 +219,7 @@ int Dir::interveneOwner(int addr) {
             // Get the actual tileid of the tile within the
             // partition that is responsible for addr
             tileid = mapAddrToTile(partid, addr);
-            NETWORK->sendDirToTile(INT, addr, tileid);
+            NETWORK->sendReqDirToTile(INT, addr, tileid);
         }
     }
 }
@@ -269,6 +287,10 @@ void Dir::netInitRdX(ulong addr, ulong fromtile) {
     // Get the partition that the tile belongs to
     ulong partid = mapTileToPart(fromtile); 
 
+    // For now we are going to assume we will just
+    // get the data from memory
+    CURRENTDELAY += MEMATIME;
+
     switch (de->state) {
 
         // For EM we need to invalidate the current owner
@@ -276,8 +298,8 @@ void Dir::netInitRdX(ulong addr, ulong fromtile) {
         case DSTATEEM: 
             // Invalidate current owner.
             invalidateSharers(addr, partid);
-            // Simulate replying with data
-            //tile[fromtile]->
+            // Reply Data
+            NETWORK->fakeDataDirToTile(addr, fromtile);
             // Add new owner to bit map.
             de->sharers->setBit(partid);
             break;
@@ -319,6 +341,10 @@ void Dir::netInitRd(ulong addr, ulong fromtile) {
     // Get the partition that the tile belongs to
     ulong partid = mapTileToPart(fromtile); 
 
+    // For now we are going to assume we will just
+    // get the data from memory
+    CURRENTDELAY += MEMATIME;
+
     switch (de->state) {
 
         // For EM we need to transistion to shared state 
@@ -326,6 +352,8 @@ void Dir::netInitRd(ulong addr, ulong fromtile) {
         case DSTATEEM: 
             // send intervention
             interveneOwner(addr);
+            // Reply Data
+            NETWORK->fakeDataDirToTile(addr, fromtile);
             // Add new sharer to bit map.
             de->sharers->setBit(partid);
             // Transition to S
@@ -334,12 +362,16 @@ void Dir::netInitRd(ulong addr, ulong fromtile) {
 
         // For S, no need to change state
         case DSTATES: 
+            // Reply Data
+            NETWORK->fakeDataDirToTile(addr, fromtile);
             // Add new sharer to bit map.
             de->sharers->setBit(partid);
             break;
 
         // For I, transition to EM
         case DSTATEI: 
+            // Reply Data
+            NETWORK->fakeDataDirToTile(addr, fromtile);
             // Add new sharer to bit map.
             de->sharers->setBit(partid);
             // Transition to EM
@@ -376,6 +408,8 @@ void Dir::netInitUpgr(ulong addr, ulong fromtile) {
             // shouldn't be invalidated.
             de->sharers->clearBit(partid);
             invalidateSharers(addr, partid);
+            // Reply - no data
+            NETWORK->fakeReqDirToTile(addr, fromtile);
             // Transition to EM
             setState(addr, DSTATEEM);
             // Add partid back into sharers bit map.
