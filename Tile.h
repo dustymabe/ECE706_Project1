@@ -24,6 +24,8 @@ public:
     unsigned int xindex;
     unsigned int yindex;
     unsigned int cycle;
+    unsigned int ctocxfer;
+    unsigned int memxfer;
 
     Tile(int number, int partition);
     ~Tile() {delete l1cache; delete l2cache; };
@@ -32,7 +34,7 @@ public:
     void PrintStats();
 
     void broadcastToPartition(ulong msg, ulong addr);
-    void getFromNetwork(ulong msg, ulong addr, ulong fromtile);
+    int getFromNetwork(ulong msg, ulong addr, ulong fromtile);
     int mapAddrToTile(ulong addr);
 };
 

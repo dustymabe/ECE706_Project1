@@ -26,7 +26,9 @@ Tile::Tile(int number, int partition) {
     index  = number;
     xindex = index / SQRTNPROCS;  
     yindex = index % SQRTNPROCS;  
-    cycle = 0;
+    cycle    = 0;
+    ctocxfer = 0;
+    memxfer  = 0;
 
     l1cache = new Cache(this, L1, L1SIZE, L1ASSOC, BLKSIZE);
     assert(l1cache);
@@ -78,7 +80,15 @@ void Tile::L2Access(ulong addr, uchar op) {
 
     int tileid = mapAddrToTile(addr);
     int msg    = (op == 'w') ? L2WR : L2RD;
-    NETWORK->sendReqTileToTile(msg, addr, index, tileid);
+    int state = NETWORK->sendReqTileToTile(msg, addr, index, tileid);
+
+    // If it was a hit and it was a remote cache then bump counter
+    if (state == HIT && tileid != index)
+        ctocxfer++;
+
+    // If it was a miss then we accessed memory 
+    if (state == MISS)
+        memxfer++;
 }
 
 /*
@@ -110,8 +120,10 @@ int Tile::mapAddrToTile(ulong addr) {
  *       stats about hit/miss rates. etc.
  */
 void Tile::PrintStats() {
-    printf("===== Simulation results (Tile %d)     =============\n", index);
-    printf("00. cycle completed:                            %lu\n",  cycle);
+    printf("========================================================== (Tile %d)\n", index);
+    printf("01. cycle completed:                            %lu\n",  cycle);
+    printf("02. cache to cache xfer                         %lu\n",  ctocxfer);
+    printf("03. memory xfer                                 %lu\n",  memxfer);
     printf("===== Simulation results (Cache %d L1) =============\n", index);
     l1cache->PrintStats();
     printf("===== Simulation results (Cache %d L2) =============\n", index);
@@ -125,15 +137,16 @@ void Tile::PrintStats() {
  *       represents when a message has been received by this tile
  *       from the network.
  */
-void Tile::getFromNetwork(ulong msg, ulong addr, ulong fromtile) {
+int Tile::getFromNetwork(ulong msg, ulong addr, ulong fromtile) {
 
     CacheLine * line;
+    int state;
 
     // Handle L1 messages first
     if (msg == L1INV) {
         l1cache->invalidateLineIfExists(addr);
         CURRENTDELAY += L1ATIME;
-        return;
+        return -1;
     }
 
 
@@ -150,23 +163,23 @@ void Tile::getFromNetwork(ulong msg, ulong addr, ulong fromtile) {
             // If the line has been evicted already then 
             // nothing to do.
             if (!line)
-                return;
+                return -1;
 
             // Pass the message on to the CCSM
             line->ccsm->getFromNetwork(msg);
-            break;
+            return -1;
 
         case L2RD:
-            l2cache->Access(addr, 'r');
+            state = l2cache->Access(addr, 'r');
             // Fake sending back data to the requesting tile
             NETWORK->fakeDataTileToTile(index, fromtile);
-            break;
+            return state;
 
         case L2WR:
-            l2cache->Access(addr, 'w');
+            state = l2cache->Access(addr, 'w');
             // Fake sending back data to the requesting tile
             NETWORK->fakeDataTileToTile(index, fromtile);
-            break;
+            return state;
 
         default:
             assert(0); // Should not get here

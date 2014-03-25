@@ -25,8 +25,7 @@ ulong Net::sendReqTileToTile(ulong msg, ulong addr, ulong fromtile, ulong totile
         CURRENTDELAY += HOPDELAY(calcTileToTileHops(fromtile, totile));
 
     // Service the request
-    tiles[totile]->getFromNetwork(msg, addr, fromtile);
-    return 1;
+    return tiles[totile]->getFromNetwork(msg, addr, fromtile);
 }
 
 ulong Net::sendReqDirToTile(ulong msg, ulong addr, ulong totile) {
