@@ -21,6 +21,7 @@ protected:
    
 public:
     unsigned int index;
+    unsigned int partscheme;
     unsigned int xindex;
     unsigned int yindex;
     unsigned int cycle;
@@ -30,7 +31,7 @@ public:
     unsigned int memcycles;
     unsigned int memhopscycles;
 
-    Tile(int number, int partition);
+    Tile(int number, int partspertile, int partition);
     ~Tile() {delete l1cache; delete l2cache; };
     void Access(ulong addr, uchar op);
     void L2Access(ulong addr, uchar op);

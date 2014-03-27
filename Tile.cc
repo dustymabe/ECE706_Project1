@@ -23,7 +23,7 @@ extern int CURRENTDELAY;
 extern int CURRENTMEMDELAY;
 
 
-Tile::Tile(int number, int partition) {
+Tile::Tile(int number, int partspertile, int partition) {
 
     index  = number;
     xindex = index / SQRTNPROCS;  
@@ -40,6 +40,8 @@ Tile::Tile(int number, int partition) {
 
     l2cache = new Cache(this, L2, L2SIZE, L2ASSOC, BLKSIZE);
     assert(l2cache);
+
+    partscheme = partspertile;
 
     part = new BitVector(partition);
 }
@@ -166,9 +168,19 @@ void Tile::PrintStatsTabular(int printhead) {
     sprintf(buftemp, "%15lu", index);
     strcat(bufbody, buftemp);
 
+    sprintf(buftemp, "%15s", "partscheme");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15lu", partscheme);
+    strcat(bufbody, buftemp);
+
     sprintf(buftemp, "%15s", "cycle");
     strcat(bufhead, buftemp);
     sprintf(buftemp, "%15lu", cycle);
+    strcat(bufbody, buftemp);
+
+    sprintf(buftemp, "%15s", "accesses");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15lu", accesses);
     strcat(bufbody, buftemp);
 
     sprintf(buftemp, "%15s", "ctocxfer");

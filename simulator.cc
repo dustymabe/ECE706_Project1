@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
     Tile * tiles[NPROCS];
     for (i=0; i < NPROCS; i++) {
         partid = dir->mapTileToPart(i);
-        tiles[i] = new Tile(i, dir->parttable[partid]->getVector());
+        tiles[i] = new Tile(i, partscheme, dir->parttable[partid]->getVector());
         assert(tiles[i]);
     }
 
