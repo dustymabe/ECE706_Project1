@@ -5,6 +5,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #include "Tile.h"
 #include "Cache.h"
 #include "CacheLine.h"
@@ -146,6 +147,82 @@ void Tile::PrintStats() {
     l1cache->PrintStats();
     printf("===== Simulation results (Cache %d L2) =============\n", index);
     l2cache->PrintStats();
+}
+
+/*
+ * Tile::PrintStatsTabular()
+ *     - Print a header and then query the L1 and L2 to print
+ *       stats about hit/miss rates. etc.
+ */
+void Tile::PrintStatsTabular(int printhead) {
+
+    char buftemp[100]  = { 0 };
+    char bufhead[2048] = { 0 };
+    char bufbody[2048] = { 0 };
+
+
+    sprintf(buftemp, "%15s", "tile");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15lu", index);
+    strcat(bufbody, buftemp);
+
+    sprintf(buftemp, "%15s", "cycle");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15lu", cycle);
+    strcat(bufbody, buftemp);
+
+    sprintf(buftemp, "%15s", "ctocxfer");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15lu", ctocxfer);
+    strcat(bufbody, buftemp);
+
+    sprintf(buftemp, "%15s", "memxfer");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15lu", memxfer);
+    strcat(bufbody, buftemp);
+
+    sprintf(buftemp, "%15s", "memcycles");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15lu", memcycles);
+    strcat(bufbody, buftemp);
+
+    sprintf(buftemp, "%15s", "AAT");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15f", ((float)cycle / (float)accesses));
+    strcat(bufbody, buftemp);
+
+    sprintf(buftemp, "%15s", "ahopcycles");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15f", ((float)(cycle - memcycles) / (float)accesses));
+    strcat(bufbody, buftemp);
+
+    sprintf(buftemp, "%15s", "amemnohops");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15f", ((float)memcycles / (float)accesses));
+    strcat(bufbody, buftemp);
+
+    sprintf(buftemp, "%15s", "amemwithhops");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15f", ((float)(memcycles + memhopscycles)  / (float)accesses));
+    strcat(bufbody, buftemp);
+
+    if (printhead) {
+        // Print the head
+        printf("%s", bufhead);
+        // Print the head from L1
+        l1cache->PrintStatsTabular(1);
+        // Print the head from L2
+        l2cache->PrintStatsTabular(1);
+        printf("\n");
+    } else {
+        // Print the bodies
+        printf("%s", bufbody);
+        // Print the head from L1
+        l1cache->PrintStatsTabular(0);
+        // Print the head from L2
+        l2cache->PrintStatsTabular(0);
+        printf("\n");
+    }
 }
 
 

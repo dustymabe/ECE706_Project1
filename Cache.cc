@@ -5,6 +5,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #include <cmath>
 #include "Cache.h"
 #include "CacheLine.h"
@@ -343,4 +344,54 @@ void Cache::PrintStats() {
 
 }
 
+/*
+ * Cache::PrintStatsTabular
+ *     - Print statistics for this cache.
+ */
+void Cache::PrintStatsTabular(int printhead) {
+
+    char buftemp[100]  = { 0 };
+    char bufhead[2048] = { 0 };
+    char bufbody[2048] = { 0 };
+    char level[100]    = "L2";
+
+    if (cacheLevel == L1)
+        level[1] = '1';
+
+    sprintf(level+2, "%s", "reads");
+    sprintf(buftemp, "%15s", level);
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15lu", reads);
+    strcat(bufbody, buftemp);
+
+    sprintf(level+2, "%s", "rdMisses");
+    sprintf(buftemp, "%15s", level);
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15lu", readMisses);
+    strcat(bufbody, buftemp);
+
+    sprintf(level+2, "%s", "writes");
+    sprintf(buftemp, "%15s", level);
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15lu", writes);
+    strcat(bufbody, buftemp);
+
+    sprintf(level+2, "%s", "wrMisses");
+    sprintf(buftemp, "%15s", level);
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15lu", writeMisses);
+    strcat(bufbody, buftemp);
+
+    sprintf(level+2, "%s", "wrBacks");
+    sprintf(buftemp, "%15s", level);
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15lu", writeBacks);
+    strcat(bufbody, buftemp);
+
+    if (printhead)
+        printf("%s", bufhead);
+    else
+        printf("%s", bufbody);
+
+}
 

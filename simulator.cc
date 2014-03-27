@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
     // Check input
     if (argv[1] == NULL) {
         printf("input format: ");
-        printf("./sim <partitions> <trace_file> \n");
+        printf("./sim <partitions> <trace_file> <tabular>\n");
         exit(1);
     }
 
@@ -51,10 +51,10 @@ int main(int argc, char *argv[]) {
     char *fname =  (char *)malloc(100);
     fname = argv[2];
 
-////if (argv[7] == NULL)
+    if (argv[3] == NULL)
         tabular = 0;
-////else
-////    tabular = 1;
+    else
+        tabular = 1;
 
 
     // Print out the simulator configuration (if not tabular)
@@ -152,20 +152,20 @@ int main(int argc, char *argv[]) {
     }
     fclose(fp);
 
-    // Print out statistics for each cache
 
-    // If asked to print out stats in tabular form
-    // then do so, else print out normal output.
-////if (tabular) {
-////    cacheArray[0]->printHeaderTabular(strHeader);
-////    for(i=0; i<num_processors; i++)
-////        cacheArray[i]->printStatsTabular(strStats, i);
-////    printf("%s\tTotals\n", strStats);
-////} else {
-////    for(i=0; i<num_processors; i++)
-////        cacheArray[i]->printStats(i);
-////}
+    // Print the output. Either tabular or normal
+    if (tabular) {
     
-    for (i=0; i < NPROCS; i++)
-        tiles[i]->PrintStats();
+        // Print the header first
+        tiles[0]->PrintStatsTabular(1);
+
+        // Now print all the bodies
+        for (i=0; i < NPROCS; i++)
+            tiles[i]->PrintStatsTabular(0);
+    } else {
+
+        // Print it all out
+        for (i=0; i < NPROCS; i++)
+            tiles[i]->PrintStats();
+    }
 }

@@ -60,8 +60,7 @@ public:
 
     ulong Access(ulong, uchar);
     void PrintStats();
-    void PrintHeaderTabular(char *strHeader);
-    void PrintStatsTabular(char *strStats, int proc); 
+    void PrintStatsTabular(int printhead); 
     void updateLRU(CacheLine *);
 
     ulong calcTag(ulong addr);
