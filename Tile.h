@@ -26,6 +26,9 @@ public:
     unsigned int cycle;
     unsigned int ctocxfer;
     unsigned int memxfer;
+    unsigned int accesses;
+    unsigned int memcycles;
+    unsigned int memhopscycles;
 
     Tile(int number, int partition);
     ~Tile() {delete l1cache; delete l2cache; };

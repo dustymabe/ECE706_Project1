@@ -16,7 +16,8 @@
 
 Net *NETWORK;
 
-ulong CURRENTDELAY = 0;
+ulong CURRENTDELAY    = 0;
+ulong CURRENTMEMDELAY = 0;
 
 
 int main(int argc, char *argv[]) {

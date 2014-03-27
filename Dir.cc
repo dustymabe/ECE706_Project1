@@ -19,6 +19,7 @@ extern Net *NETWORK;
 
 // Global delay counter for the current outstanding memory request.
 extern int CURRENTDELAY;
+extern int CURRENTMEMDELAY;
 
 /*
  * DirEntry constructor
@@ -289,7 +290,7 @@ void Dir::netInitRdX(ulong addr, ulong fromtile) {
 
     // For now we are going to assume we will just
     // get the data from memory
-    CURRENTDELAY += MEMATIME;
+    CURRENTMEMDELAY += MEMATIME;
 
     switch (de->state) {
 
@@ -343,7 +344,7 @@ void Dir::netInitRd(ulong addr, ulong fromtile) {
 
     // For now we are going to assume we will just
     // get the data from memory
-    CURRENTDELAY += MEMATIME;
+    CURRENTMEMDELAY += MEMATIME;
 
     switch (de->state) {
 

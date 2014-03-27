@@ -19,6 +19,7 @@ extern Net *NETWORK;
 
 // Global delay counter for the current outstanding memory request.
 extern int CURRENTDELAY;
+extern int CURRENTMEMDELAY;
 
 
 Tile::Tile(int number, int partition) {
@@ -26,9 +27,12 @@ Tile::Tile(int number, int partition) {
     index  = number;
     xindex = index / SQRTNPROCS;  
     yindex = index % SQRTNPROCS;  
-    cycle    = 0;
-    ctocxfer = 0;
-    memxfer  = 0;
+    cycle    = 0;      // Keep count of cycles (measure of performance)
+    ctocxfer = 0;      // How many times did we get data from remote L2 in this partition
+    memxfer  = 0;      // How many times did we access memory?
+    accesses = 0;      // How many memory operations were there for this tile? 
+    memcycles = 0;     // Keep up with cycles spent waiting for mem access
+    memhopscycles = 0; // Keep up with hop cycles when memory is accessed
 
     l1cache = new Cache(this, L1, L1SIZE, L1ASSOC, BLKSIZE);
     assert(l1cache);
@@ -48,8 +52,12 @@ Tile::Tile(int number, int partition) {
 void Tile::Access(ulong addr, uchar op) {
     int state;
 
+    // Bump accesses counter
+    accesses++;
+
     // Reset global CURRENTDELAY counter 
     CURRENTDELAY = 0;
+    CURRENTMEMDELAY = 0;
 
     // L1: Check L1 to see if hit
     state = l1cache->Access(addr, op);
@@ -66,7 +74,11 @@ void Tile::Access(ulong addr, uchar op) {
     // All accesses are done so add the accumulated delay
     // to the cycle counter.
     cycle += CURRENTDELAY;
-    
+    cycle += CURRENTMEMDELAY;
+    if (CURRENTMEMDELAY != 0) {
+        memcycles     += CURRENTMEMDELAY;
+        memhopscycles += (CURRENTMEMDELAY + CURRENTDELAY);
+    }
 }
 
 /*
@@ -124,6 +136,12 @@ void Tile::PrintStats() {
     printf("01. cycle completed:                            %lu\n",  cycle);
     printf("02. cache to cache xfer                         %lu\n",  ctocxfer);
     printf("03. memory xfer                                 %lu\n",  memxfer);
+    printf("04. number of accesses                          %lu\n",  accesses);
+    printf("06. memory cycles                               %lu\n",  memcycles);
+    printf("07. average total access time (cycles)          %f\n" ,  ((float)cycle / (float)accesses));
+    printf("08. average interconnect hop cycles             %f\n" ,  ((float)(cycle - memcycles) / (float)accesses));
+    printf("09. average mem access cycles (excludes hops)   %f\n" ,  ((float)memcycles / (float)accesses));
+    printf("10. average mem access cycles (includes hops)   %f\n" ,  ((float)(memcycles + memhopscycles)  / (float)accesses));
     printf("===== Simulation results (Cache %d L1) =============\n", index);
     l1cache->PrintStats();
     printf("===== Simulation results (Cache %d L2) =============\n", index);
