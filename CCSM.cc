@@ -40,6 +40,7 @@ void CCSM::setState(int s) {
     // are a few things to do. 
     if (state != STATEI && s == STATEI) {
 
+        assert(line->isValid()); // line should be valid
 
         // Since L1 and L2 are inclusive and we are invalidating 
         // out of L2 (only have CCSM in L2) then broadcast 
@@ -48,6 +49,10 @@ void CCSM::setState(int s) {
             L1INV,
             cache->getBaseAddr(line->getTag(), line->getIndex())
         );
+
+        // If the the line is dirty then this is a writeback
+        if (line->getFlags() == DIRTY)
+            cache->writeBack();
 
         // set the cache line state to invalid
         line->invalidate();
