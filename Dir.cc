@@ -199,6 +199,51 @@ int Dir::invalidateSharers(int addr, int pid) {
 }
 
 /*
+ * Dir::findClosestSharer
+ *     - Given an address and a requesting tile, find the closest
+ *       tile that already contains the block.
+ *
+ * returns the tile that originally had block in shared state that is
+ * the closest to tile.
+ */
+int Dir::findClosestSharer(int addr, int tile) {
+    int minhops = 0;  // min tile to tile hops
+    int closest = -1; // Tile that is closest to tile 
+    int distance, tileid, partid;
+
+    // Get the partition that the tile belongs to
+    ulong pid = mapTileToPart(tile); 
+
+    // Get the bitvector of sharers.
+    DirEntry  *de = directory[BLKADDR(addr)];
+    BitVector *bv = de->sharers;
+
+    // Iterate over sharers 
+    for(partid=0; partid < bv->size; partid++) {
+
+        if (partid == pid)
+            continue;
+
+        if (bv->getBit(partid)) {
+            // Get the actual tileid of the tile within the
+            // partition that is responsible for addr
+            tileid = mapAddrToTile(partid, addr);
+
+            // Is it the closest tile?
+            distance=NETWORK->calcTileToTileHops(tileid, tile);
+            if (distance < minhops) {
+                minhops = distance;
+                closest = tileid;
+            }
+        }
+    }
+
+    // Return back the tile that had the block that is closest to
+    // fromtile.
+    return closest;
+}
+
+/*
  * Dir::interveneOwner
  *     - Given a block address use the DirEntry sharers bitvector
  *       to find the partition that owns the block. Map the addr
@@ -222,6 +267,30 @@ int Dir::interveneOwner(int addr) {
             tileid = mapAddrToTile(partid, addr);
             NETWORK->sendReqDirToTile(INT, addr, tileid);
         }
+    }
+}
+
+/*
+ * Dir::replyData
+ *     - Reply data to a requesting block
+ */
+void Dir::replyData(int addr, int fromtile, int totile) {
+
+    // If fromtile == -1 then there is no sharer
+    if (fromtile == -1) {
+
+        // Had to access memory so add in the delay
+        CURRENTMEMDELAY += MEMATIME;
+        // Reply Data
+        NETWORK->fakeDataDirToTile(addr, totile);
+
+    } else {
+
+        // Accessed the L2 $ of sending tile
+        CURRENTDELAY += L2ATIME;
+        // Reply Data - simulate sending from closesttile;
+        NETWORK->fakeDataTileToTile(fromtile, totile);
+
     }
 }
 
@@ -282,25 +351,24 @@ ulong Dir::getFromNetwork(ulong msg, ulong addr, ulong fromtile) {
  *       is delivered to the directory.
  */
 void Dir::netInitRdX(ulong addr, ulong fromtile) {
+    int closesttile;
 
     DirEntry * de = directory[BLKADDR(addr)];
 
     // Get the partition that the tile belongs to
     ulong partid = mapTileToPart(fromtile); 
 
-    // For now we are going to assume we will just
-    // get the data from memory
-    CURRENTMEMDELAY += MEMATIME;
-
     switch (de->state) {
 
         // For EM we need to invalidate the current owner
         // and reply with data to new owner. Will stay in M state.
         case DSTATEEM: 
+            // Find the closest sharer
+            closesttile = findClosestSharer(addr, fromtile);
             // Invalidate current owner.
             invalidateSharers(addr, partid);
             // Reply Data
-            NETWORK->fakeDataDirToTile(addr, fromtile);
+            replyData(addr, closesttile, fromtile);
             // Add new owner to bit map.
             de->sharers->setBit(partid);
             break;
@@ -308,8 +376,12 @@ void Dir::netInitRdX(ulong addr, ulong fromtile) {
         // For S we need to transition to M and invalidate all
         // sharers.
         case DSTATES: 
+            // Find the closest sharer
+            closesttile = findClosestSharer(addr, fromtile);
             // Invalidate all sharers
             invalidateSharers(addr, partid);
+            // Reply Data
+            replyData(addr, closesttile, fromtile);
             // Add new owner to bit map.
             de->sharers->setBit(partid);
             // Transition to EM
@@ -318,6 +390,8 @@ void Dir::netInitRdX(ulong addr, ulong fromtile) {
 
         // For invalid state just transition to M
         case DSTATEI: 
+            // Reply Data
+            replyData(addr, -1, fromtile);
             // Add new owner to bit map.
             de->sharers->setBit(partid);
             // Transition to EM
@@ -336,25 +410,24 @@ void Dir::netInitRdX(ulong addr, ulong fromtile) {
  *       is delivered to the directory.
  */
 void Dir::netInitRd(ulong addr, ulong fromtile) {
+    int closesttile;
 
     DirEntry * de = directory[BLKADDR(addr)];
 
     // Get the partition that the tile belongs to
     ulong partid = mapTileToPart(fromtile); 
 
-    // For now we are going to assume we will just
-    // get the data from memory
-    CURRENTMEMDELAY += MEMATIME;
-
     switch (de->state) {
 
         // For EM we need to transistion to shared state 
         // and send an intervention to previous owner.
         case DSTATEEM: 
+            // Find the closest sharer
+            closesttile = findClosestSharer(addr, fromtile);
             // send intervention
             interveneOwner(addr);
             // Reply Data
-            NETWORK->fakeDataDirToTile(addr, fromtile);
+            replyData(addr, closesttile, fromtile);
             // Add new sharer to bit map.
             de->sharers->setBit(partid);
             // Transition to S
@@ -363,8 +436,10 @@ void Dir::netInitRd(ulong addr, ulong fromtile) {
 
         // For S, no need to change state
         case DSTATES: 
+            // Find the closest sharer
+            closesttile = findClosestSharer(addr, fromtile);
             // Reply Data
-            NETWORK->fakeDataDirToTile(addr, fromtile);
+            replyData(addr, closesttile, fromtile);
             // Add new sharer to bit map.
             de->sharers->setBit(partid);
             break;
@@ -372,7 +447,7 @@ void Dir::netInitRd(ulong addr, ulong fromtile) {
         // For I, transition to EM
         case DSTATEI: 
             // Reply Data
-            NETWORK->fakeDataDirToTile(addr, fromtile);
+            replyData(addr, -1, fromtile);
             // Add new sharer to bit map.
             de->sharers->setBit(partid);
             // Transition to EM

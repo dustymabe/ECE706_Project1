@@ -48,8 +48,10 @@ class Dir {
         ~Dir();
         int mapAddrToTile(int partid, int blockaddr);
         int mapTileToPart(int tileid);
-        int invalidateSharers(int blockaddr, int partid);
-        int interveneOwner(int blockaddr);
+        int invalidateSharers(int addr, int partid);
+        int interveneOwner(int addr);
+        int findClosestSharer(int addr, int tile);
+        void replyData(int addr, int fromtile, int totile);
         void setState(ulong blockaddr, int s);
         ulong getFromNetwork(ulong msg, ulong addr, ulong fromtile);
         void netInitRdX(ulong blockaddr, ulong partid);
