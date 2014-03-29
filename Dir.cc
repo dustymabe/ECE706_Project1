@@ -207,7 +207,7 @@ int Dir::invalidateSharers(int addr, int pid) {
  * the closest to tile.
  */
 int Dir::findClosestSharer(int addr, int tile) {
-    int minhops = 0;  // min tile to tile hops
+    int minhops = 10000;  // min tile to tile hops
     int closest = -1; // Tile that is closest to tile 
     int distance, tileid, partid;
 

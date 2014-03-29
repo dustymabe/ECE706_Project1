@@ -29,8 +29,9 @@ Tile::Tile(int number, int partspertile, int partition) {
     xindex = index / SQRTNPROCS;  
     yindex = index % SQRTNPROCS;  
     cycle    = 0;      // Keep count of cycles (measure of performance)
-    ctocxfer = 0;      // How many times did we get data from remote L2 in this partition
-    memxfer  = 0;      // How many times did we access memory?
+    ctocxfer = 0;      // How many times did we get data from remote L2 in this partition?
+    memxfer  = 0;      // How many times did we access memory (for data, not writebacks)?
+    ptopxfer = 0;      // How many times did we get data from remote L2 in other partition?
     accesses = 0;      // How many memory operations were there for this tile? 
     memcycles = 0;     // Keep up with cycles spent waiting for mem access
     memhopscycles = 0; // Keep up with hop cycles when memory is accessed
@@ -70,7 +71,7 @@ void Tile::Access(ulong addr, uchar op) {
     if (state == HIT && op == 'w')
         L2Access(addr, op); // Aggregate L2 access
 
-    // L2L If the L1 Missed then access the aggregate L2
+    // L2: If the L1 Missed then access the aggregate L2
     if (state == MISS)
         L2Access(addr, op);
 
@@ -101,9 +102,13 @@ void Tile::L2Access(ulong addr, uchar op) {
     if (state == HIT && tileid != index)
         ctocxfer++;
 
-    // If it was a miss then we accessed memory 
+    // If it was a miss then we accessed memory or a remote
+    // partition
     if (state == MISS)
-        memxfer++;
+        if (CURRENTMEMDELAY != 0)
+            memxfer++;
+        else
+            ptopxfer++;
 }
 
 /*
@@ -137,9 +142,10 @@ int Tile::mapAddrToTile(ulong addr) {
 void Tile::PrintStats() {
     printf("========================================================== (Tile %d)\n", index);
     printf("01. cycle completed:                            %lu\n",  cycle);
-    printf("02. cache to cache xfer                         %lu\n",  ctocxfer);
-    printf("03. memory xfer                                 %lu\n",  memxfer);
-    printf("04. number of accesses                          %lu\n",  accesses);
+    printf("02. cache to cache xfer (within partition)      %lu\n",  ctocxfer);
+    printf("03. memory xfer (does not include writebacks)   %lu\n",  memxfer);
+    printf("04. part to part xfer  (outside partition)      %lu\n",  ptopxfer);
+    printf("05. number of accesses                          %lu\n",  accesses);
     printf("06. memory cycles                               %lu\n",  memcycles);
     printf("07. average total access time (cycles)          %f\n" ,  ((float)cycle / (float)accesses));
     printf("08. average interconnect hop cycles             %f\n" ,  ((float)(cycle - memcycles) / (float)accesses));
@@ -186,6 +192,11 @@ void Tile::PrintStatsTabular(int printhead) {
     sprintf(buftemp, "%15s", "ctocxfer");
     strcat(bufhead, buftemp);
     sprintf(buftemp, "%15lu", ctocxfer);
+    strcat(bufbody, buftemp);
+
+    sprintf(buftemp, "%15s", "ptopxfer");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15lu", ptopxfer);
     strcat(bufbody, buftemp);
 
     sprintf(buftemp, "%15s", "memxfer");

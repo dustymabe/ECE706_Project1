@@ -27,6 +27,7 @@ public:
     unsigned int cycle;
     unsigned int ctocxfer;
     unsigned int memxfer;
+    unsigned int ptopxfer;
     unsigned int accesses;
     unsigned int memcycles;
     unsigned int memhopscycles;
