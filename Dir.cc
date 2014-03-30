@@ -20,6 +20,7 @@ extern Net *NETWORK;
 // Global delay counter for the current outstanding memory request.
 extern int CURRENTDELAY;
 extern int CURRENTMEMDELAY;
+extern int PARTSHARING;
 
 /*
  * DirEntry constructor
@@ -31,7 +32,6 @@ DirEntry::DirEntry(ulong blockaddr) {
     blockaddr = blockaddr;
     state     = DSTATEI;
     sharers   = new BitVector(0);
-    location  = 0; //XXX 
 }
 
 /*
@@ -275,6 +275,11 @@ int Dir::interveneOwner(int addr) {
  *     - Reply data to a requesting block
  */
 void Dir::replyData(int addr, int fromtile, int totile) {
+
+    // Is forwarding data requests to other partitions allowed? 
+    // If not then just set fromtile to -1
+    if (PARTSHARING == 0)
+        fromtile = -1;
 
     // If fromtile == -1 then there is no sharer
     if (fromtile == -1) {

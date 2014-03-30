@@ -19,6 +19,8 @@ Net *NETWORK;
 ulong CURRENTDELAY    = 0;
 ulong CURRENTMEMDELAY = 0;
 
+ulong PARTSHARING     = 0;
+
 
 int main(int argc, char *argv[]) {
     
@@ -30,7 +32,7 @@ int main(int argc, char *argv[]) {
     int   proc;
     int   partscheme;
     int   partid;
-    int   tabular;
+    int   tabular = 0;
     ulong addr;
     Cache ** cacheArray;
     char delimit[4] = " \t\n"; // tokenize based on "space", "tab", eol
@@ -40,20 +42,21 @@ int main(int argc, char *argv[]) {
     // Check input
     if (argv[1] == NULL) {
         printf("input format: ");
-        printf("./sim <partitions> <trace_file> <tabular>\n");
+        printf("./sim <partitions> <partsharing> <trace_file> <tabular>\n");
         exit(1);
     }
 
     //Convert the arguments to integer values
     sscanf(argv[1], "%u", &partscheme);
 
+    //Convert the arguments to integer values
+    sscanf(argv[2], "%u", &PARTSHARING);
+
     // Store the filename
     char *fname =  (char *)malloc(100);
-    fname = argv[2];
+    fname = argv[3];
 
-    if (argv[3] == NULL)
-        tabular = 0;
-    else
+    if (argv[4] != NULL)
         tabular = 1;
 
 
@@ -68,13 +71,9 @@ int main(int argc, char *argv[]) {
         printf("NUMBER OF PROCESSORS:           %d\n", NPROCS);
         printf("COHERENCE PROTOCOL:             %s\n", "MESI");
         printf("TILES PER PARTITION:            %d\n", partscheme);
+        printf("ALLOW PARITION SHARING:         %d\n", PARTSHARING);
         printf("TRACE FILE:                     %s\n", basename(fname));
     } 
-////else {
-////    sprintf(strHeader, "csize\tassoc\tblk\tnprocs\tprot\tvrun");
-////    sprintf(strStats, "%d\t%d\t%d\t%d\t%s\t%s", cache_size, cache_assoc,
-////        blk_size, num_processors, CCPROTOCOLS[protocol], basename(fname));
-////}
 
     // Create a new directory. Rather than have 4 directories (one 
     // each corner tile) I am just going to use 1 directory and adjust
@@ -93,18 +92,6 @@ int main(int argc, char *argv[]) {
     // Create the global network element
     NETWORK = new Net(dir, tiles);
     assert(NETWORK);
-
-
- 
-////// Create an array to hold a cache object for each proc
-////cacheArray = new Cache * [nprocs];
-
-////// Create a new bus
-////bus = new Bus(num_processors, cacheArray);
-
-////// Create a cache object for each proc
-////for(i=0; i < nprocs; i++)
-////    cacheArray[i] = new Cache(cache_size, cache_assoc, blk_size, protocol, bus);
 
     // Open the trace file
     fp = fopen(fname,"r");
