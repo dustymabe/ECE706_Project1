@@ -289,7 +289,8 @@ void Dir::replyData(int addr, int fromtile, int totile) {
         // Accessed the L2 $ of sending tile
         CURRENTDELAY += L2ATIME;
         // Reply Data - simulate sending from closesttile;
-        NETWORK->fakeDataTileToTile(fromtile, totile);
+        NETWORK->fakeReqDirToTile(addr, fromtile);     // Fwd req to fromtile
+        NETWORK->fakeDataTileToTile(fromtile, totile); // Data fromtile totile
 
     }
 }
