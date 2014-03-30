@@ -64,6 +64,7 @@ public:
     ulong flushToMem(ulong addr, ulong fromtile);
     ulong calcTileToDirHops(ulong addr, ulong tile);
     ulong calcTileToTileHops(ulong fromtile, ulong totile);
+    ulong calcDistance(int x0, int x1, int y0, int y1);
 };
 
 #endif

@@ -81,17 +81,17 @@ ulong Net::calcTileToDirHops(ulong addr, ulong tile) {
     int dirnum = BLKADDR(addr) % 4;
     int hops   = 0;
     switch (dirnum) {
-        case 0:
-            hops = calcTileToTileHops(tile, 0);
+        case 0: // Attached to tile 0. 1 hop to the left
+            hops = calcDistance(-1, 0, tiles[tile]->xindex, tiles[tile]->yindex);
             break;
-        case 1:
-            hops = calcTileToTileHops(tile, 3);
+        case 1: // Attached to tile 3. 1 hop to the right
+            hops = calcDistance(4, 0, tiles[tile]->xindex, tiles[tile]->yindex);
             break;
-        case 2:
-            hops = calcTileToTileHops(tile, 12);
+        case 2: // Attached to tile 12. 1 hop to the left
+            hops = calcDistance(-1, 3, tiles[tile]->xindex, tiles[tile]->yindex);
             break;
-        case 3:
-            hops = calcTileToTileHops(tile, 15);
+        case 3: // Attached to tile 15. 1 hop to the right
+            hops = calcDistance(4, 3, tiles[tile]->xindex, tiles[tile]->yindex);
             break;
         default :
             assert(0); // Should not get here.
@@ -105,6 +105,9 @@ ulong Net::calcTileToTileHops(ulong fromtile, ulong totile) {
     int y0 = tiles[fromtile]->yindex;
     int x1 = tiles[totile]->xindex;
     int y1 = tiles[totile]->yindex;
-    int hops = abs(x1-x0) + abs(y1-y0);
-    return hops;
+    return calcDistance(x0, x1, y0, y1);
+}
+
+ulong Net::calcDistance(int x0, int x1, int y0, int y1) {
+    return (abs(x1-x0) + abs(y1-y0));
 }
