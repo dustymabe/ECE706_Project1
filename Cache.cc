@@ -310,7 +310,9 @@ void Cache::invalidateLineIfExists(ulong addr) {
     CacheLine *line;
     if (line = findLine(addr)) {
         
-        //printf("Invalidating %x in L1 in Tile %d\n", addr, tile->index); 
+        // If the line is dirty then update writeBack
+        if (line->isValid() && line->getFlags() == DIRTY)
+            writeBack();
         line->invalidate();
 
     }
