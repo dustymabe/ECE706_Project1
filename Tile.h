@@ -25,10 +25,15 @@ public:
     unsigned int xindex;
     unsigned int yindex;
     unsigned int cycle;
+    unsigned int locxfer;
+    unsigned int locdelay;
     unsigned int ctocxfer;
+    unsigned int ctocdelay;
     unsigned int memxfer;
     unsigned int ptopxfer;
+    unsigned int ptopdelay;
     unsigned int accesses;
+    unsigned int l2accesses;
     unsigned int memcycles;
     unsigned int memhopscycles;
 

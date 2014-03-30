@@ -29,10 +29,15 @@ Tile::Tile(int number, int partspertile, int partition) {
     xindex = index / SQRTNPROCS;  
     yindex = index % SQRTNPROCS;  
     cycle    = 0;      // Keep count of cycles (measure of performance)
+    locxfer  = 0;      // How many times did we get data from our own L2?
+    locdelay = 0;      // Delay for local xfers. Should be same for each access.
     ctocxfer = 0;      // How many times did we get data from remote L2 in this partition?
+    ctocdelay= 0;      // Hop delay for ctoc accesses
     memxfer  = 0;      // How many times did we access memory (for data, not writebacks)?
     ptopxfer = 0;      // How many times did we get data from remote L2 in other partition?
+    ptopdelay= 0;      // Hop delay for ptop accesses
     accesses = 0;      // How many memory operations were there for this tile? 
+    l2accesses = 0;    // How many L2 operations were there for this tile? 
     memcycles = 0;     // Keep up with cycles spent waiting for mem access
     memhopscycles = 0; // Keep up with hop cycles when memory is accessed
 
@@ -79,10 +84,6 @@ void Tile::Access(ulong addr, uchar op) {
     // to the cycle counter.
     cycle += CURRENTDELAY;
     cycle += CURRENTMEMDELAY;
-    if (CURRENTMEMDELAY != 0) {
-        memcycles     += CURRENTMEMDELAY;
-        memhopscycles += (CURRENTMEMDELAY + CURRENTDELAY);
-    }
 }
 
 /*
@@ -98,17 +99,32 @@ void Tile::L2Access(ulong addr, uchar op) {
     int msg    = (op == 'w') ? L2WR : L2RD;
     int state = NETWORK->sendReqTileToTile(msg, addr, index, tileid);
 
+    // Bump accesses counter
+    l2accesses++;
+
     // If it was a hit and it was a remote cache then bump counter
-    if (state == HIT && tileid != index)
-        ctocxfer++;
+    if (state == HIT) {
+        if (tileid == index) {
+            locxfer++;
+            locdelay += CURRENTDELAY;
+        } else {
+            ctocxfer++;
+            ctocdelay += CURRENTDELAY;
+        }
+    }
 
     // If it was a miss then we accessed memory or a remote
     // partition
-    if (state == MISS)
-        if (CURRENTMEMDELAY != 0)
+    if (state == MISS) {
+        if (CURRENTMEMDELAY != 0) {
             memxfer++;
-        else
+            memcycles     += CURRENTMEMDELAY;
+            memhopscycles += (CURRENTMEMDELAY + CURRENTDELAY);
+        } else {
             ptopxfer++;
+            ptopdelay += CURRENTDELAY;
+        }
+    }
 }
 
 /*
@@ -189,6 +205,16 @@ void Tile::PrintStatsTabular(int printhead) {
     sprintf(buftemp, "%15lu", accesses);
     strcat(bufbody, buftemp);
 
+    sprintf(buftemp, "%15s", "L2accesses");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15lu", l2accesses);
+    strcat(bufbody, buftemp);
+
+    sprintf(buftemp, "%15s", "locxfer");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15lu", locxfer);
+    strcat(bufbody, buftemp);
+
     sprintf(buftemp, "%15s", "ctocxfer");
     strcat(bufhead, buftemp);
     sprintf(buftemp, "%15lu", ctocxfer);
@@ -204,14 +230,49 @@ void Tile::PrintStatsTabular(int printhead) {
     sprintf(buftemp, "%15lu", memxfer);
     strcat(bufbody, buftemp);
 
+////sprintf(buftemp, "%15s", "locdelay");
+////strcat(bufhead, buftemp);
+////sprintf(buftemp, "%15lu", locdelay);
+////strcat(bufbody, buftemp);
+
+    sprintf(buftemp, "%15s", "locAAT");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15f", ((float)locdelay / (float)locxfer));
+    strcat(bufbody, buftemp);
+
+////sprintf(buftemp, "%15s", "ctocdelay");
+////strcat(bufhead, buftemp);
+////sprintf(buftemp, "%15lu", ctocdelay);
+////strcat(bufbody, buftemp);
+
+    sprintf(buftemp, "%15s", "ctocAAT");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15f", ((float)ctocdelay / (float)ctocxfer));
+    strcat(bufbody, buftemp);
+
+////sprintf(buftemp, "%15s", "ptopdelay");
+////strcat(bufhead, buftemp);
+////sprintf(buftemp, "%15lu", ptopdelay);
+////strcat(bufbody, buftemp);
+
+    sprintf(buftemp, "%15s", "ptopAAT");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15f", ((float)ptopdelay / (float)ptopxfer));
+    strcat(bufbody, buftemp);
+
+    sprintf(buftemp, "%15s", "memAAT");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15f", ((float)(memcycles + memhopscycles) / (float)memxfer));
+    strcat(bufbody, buftemp);
+
+    sprintf(buftemp, "%15s", "totalAAT");
+    strcat(bufhead, buftemp);
+    sprintf(buftemp, "%15f", ((float)cycle / (float)accesses));
+    strcat(bufbody, buftemp);
+
     sprintf(buftemp, "%15s", "memcycles");
     strcat(bufhead, buftemp);
     sprintf(buftemp, "%15lu", memcycles);
-    strcat(bufbody, buftemp);
-
-    sprintf(buftemp, "%15s", "AAT");
-    strcat(bufhead, buftemp);
-    sprintf(buftemp, "%15f", ((float)cycle / (float)accesses));
     strcat(bufbody, buftemp);
 
     sprintf(buftemp, "%15s", "ahopcycles");
